@@ -1,0 +1,11 @@
+
+  # University Admission Management System (Copy)
+
+  This is a code bundle for University Admission Management System.
+  
+  ## Running the code
+
+  Run `npm i` to install the dependencies.
+
+  Run `npm run dev` to start the development server.
+  
