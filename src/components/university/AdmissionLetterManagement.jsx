@@ -1,15 +1,16 @@
 import { useState } from "react";
-import { Upload, Download, Search, CheckCircle, FileText, User, Hash, Eye, X } from "lucide-react";
-import { Card } from "./ui/card";
-import { Input } from "./ui/input";
-import { Button } from "./ui/button";
-import { Badge } from "./ui/badge";
-import { Label } from "./ui/label";
-function RollNumberManagement() {
+import { Upload, Download, Search, CheckCircle, FileText, User, Hash, Eye, X, Award, Send } from "lucide-react";
+import { Card } from "../ui/card";
+import { Input } from "../ui/input";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
+import { Label } from "../ui/label";
+import { Textarea } from "../ui/textarea";
+function AdmissionLetterManagement() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterDepartment, setFilterDepartment] = useState("all");
   const [uploadingFor, setUploadingFor] = useState(null);
-  const [viewingSlip, setViewingSlip] = useState(null);
+  const [viewingLetter, setViewingLetter] = useState(null);
   const [applications, setApplications] = useState([
     {
       id: "APP-001",
@@ -20,11 +21,14 @@ function RollNumberManagement() {
       applicationDate: "2024-12-15",
       merit: 92.5,
       rollNumber: "BSCS-2025-001",
-      rollNumberSlip: {
-        fileName: "rollnumber_ahmed_ali.pdf",
-        uploadDate: "2025-01-03",
+      meritPosition: 1,
+      admissionLetter: {
+        fileName: "admission_letter_ahmed_ali.pdf",
+        uploadDate: "2025-01-04",
         uploadedBy: "Dr. Sarah Khan",
-        fileUrl: "#"
+        fileUrl: "#",
+        letterNumber: "ADM/CS/2025/001",
+        sentToStudent: true
       }
     },
     {
@@ -34,7 +38,9 @@ function RollNumberManagement() {
       program: "BS Software Engineering",
       department: "Computer Science",
       applicationDate: "2024-12-18",
-      merit: 91.8
+      merit: 91.8,
+      rollNumber: "BSSE-2025-001",
+      meritPosition: 2
     },
     {
       id: "APP-003",
@@ -43,7 +49,9 @@ function RollNumberManagement() {
       program: "BS Electrical Engineering",
       department: "Electrical Engineering",
       applicationDate: "2024-12-20",
-      merit: 90.2
+      merit: 90.2,
+      rollNumber: "BSEE-2025-001",
+      meritPosition: 3
     },
     {
       id: "APP-004",
@@ -52,7 +60,9 @@ function RollNumberManagement() {
       program: "BS Mechanical Engineering",
       department: "Mechanical Engineering",
       applicationDate: "2024-12-22",
-      merit: 89.5
+      merit: 89.5,
+      rollNumber: "BSME-2025-001",
+      meritPosition: 5
     },
     {
       id: "APP-005",
@@ -61,7 +71,9 @@ function RollNumberManagement() {
       program: "BS Civil Engineering",
       department: "Civil Engineering",
       applicationDate: "2024-12-25",
-      merit: 88.9
+      merit: 88.9,
+      rollNumber: "BSCE-2025-001",
+      meritPosition: 8
     },
     {
       id: "APP-006",
@@ -72,11 +84,14 @@ function RollNumberManagement() {
       applicationDate: "2024-12-28",
       merit: 93.1,
       rollNumber: "BSAI-2025-001",
-      rollNumberSlip: {
-        fileName: "rollnumber_zainab_ahmed.pdf",
-        uploadDate: "2025-01-04",
+      meritPosition: 1,
+      admissionLetter: {
+        fileName: "admission_letter_zainab_ahmed.pdf",
+        uploadDate: "2025-01-05",
         uploadedBy: "Dr. Sarah Khan",
-        fileUrl: "#"
+        fileUrl: "#",
+        letterNumber: "ADM/AI/2025/001",
+        sentToStudent: false
       }
     },
     {
@@ -86,7 +101,9 @@ function RollNumberManagement() {
       program: "BS Data Science",
       department: "Computer Science",
       applicationDate: "2024-12-30",
-      merit: 91.2
+      merit: 91.2,
+      rollNumber: "BSDS-2025-001",
+      meritPosition: 4
     },
     {
       id: "APP-008",
@@ -95,17 +112,20 @@ function RollNumberManagement() {
       program: "BS Electronics Engineering",
       department: "Electrical Engineering",
       applicationDate: "2025-01-01",
-      merit: 90.7
+      merit: 90.7,
+      rollNumber: "BSElec-2025-001",
+      meritPosition: 6
     }
   ]);
   const [uploadForm, setUploadForm] = useState({
-    rollNumber: "",
+    letterNumber: "",
     fileName: "",
-    file: null
+    file: null,
+    remarks: ""
   });
   const departments = ["all", "Computer Science", "Electrical Engineering", "Mechanical Engineering", "Civil Engineering"];
   const filteredApplications = applications.filter((app) => {
-    const matchesSearch = app.studentName.toLowerCase().includes(searchQuery.toLowerCase()) || app.studentEmail.toLowerCase().includes(searchQuery.toLowerCase()) || app.program.toLowerCase().includes(searchQuery.toLowerCase()) || app.id.toLowerCase().includes(searchQuery.toLowerCase()) || app.rollNumber?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = app.studentName.toLowerCase().includes(searchQuery.toLowerCase()) || app.studentEmail.toLowerCase().includes(searchQuery.toLowerCase()) || app.program.toLowerCase().includes(searchQuery.toLowerCase()) || app.id.toLowerCase().includes(searchQuery.toLowerCase()) || app.rollNumber.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesDepartment = filterDepartment === "all" || app.department === filterDepartment;
     return matchesSearch && matchesDepartment;
   });
@@ -119,8 +139,8 @@ function RollNumberManagement() {
       });
     }
   };
-  const handleUploadSlip = () => {
-    if (!uploadingFor || !uploadForm.rollNumber || !uploadForm.file) {
+  const handleUploadLetter = () => {
+    if (!uploadingFor || !uploadForm.letterNumber || !uploadForm.file) {
       alert("Please fill in all required fields");
       return;
     }
@@ -128,12 +148,13 @@ function RollNumberManagement() {
       if (app.id === uploadingFor) {
         return {
           ...app,
-          rollNumber: uploadForm.rollNumber,
-          rollNumberSlip: {
+          admissionLetter: {
             fileName: uploadForm.fileName,
             uploadDate: (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
             uploadedBy: "Current User",
-            fileUrl: URL.createObjectURL(uploadForm.file)
+            fileUrl: URL.createObjectURL(uploadForm.file),
+            letterNumber: uploadForm.letterNumber,
+            sentToStudent: false
           }
         };
       }
@@ -141,19 +162,37 @@ function RollNumberManagement() {
     });
     setApplications(updatedApplications);
     setUploadingFor(null);
-    setUploadForm({ rollNumber: "", fileName: "", file: null });
-    alert("Roll number slip uploaded successfully!");
+    setUploadForm({ letterNumber: "", fileName: "", file: null, remarks: "" });
+    alert("Admission letter uploaded successfully!");
   };
-  const handleDownloadSlip = (app) => {
-    if (app.rollNumberSlip) {
-      alert(`Downloading ${app.rollNumberSlip.fileName}`);
+  const handleDownloadLetter = (app) => {
+    if (app.admissionLetter) {
+      alert(`Downloading ${app.admissionLetter.fileName}`);
     }
   };
-  const handleDeleteSlip = (appId) => {
-    if (confirm("Are you sure you want to delete this roll number slip?")) {
+  const handleSendToStudent = (appId) => {
+    if (confirm("Are you sure you want to send this admission letter to the student via email?")) {
+      const updatedApplications = applications.map((app) => {
+        if (app.id === appId && app.admissionLetter) {
+          return {
+            ...app,
+            admissionLetter: {
+              ...app.admissionLetter,
+              sentToStudent: true
+            }
+          };
+        }
+        return app;
+      });
+      setApplications(updatedApplications);
+      alert("Admission letter sent to student successfully!");
+    }
+  };
+  const handleDeleteLetter = (appId) => {
+    if (confirm("Are you sure you want to delete this admission letter?")) {
       const updatedApplications = applications.map((app) => {
         if (app.id === appId) {
-          const { rollNumberSlip, rollNumber, ...rest } = app;
+          const { admissionLetter, ...rest } = app;
           return rest;
         }
         return app;
@@ -163,20 +202,21 @@ function RollNumberManagement() {
   };
   const stats = {
     total: applications.length,
-    withSlip: applications.filter((app) => app.rollNumberSlip).length,
-    pending: applications.filter((app) => !app.rollNumberSlip).length
+    withLetter: applications.filter((app) => app.admissionLetter).length,
+    pending: applications.filter((app) => !app.admissionLetter).length,
+    sent: applications.filter((app) => app.admissionLetter?.sentToStudent).length
   };
   if (uploadingFor) {
     const application = applications.find((app) => app.id === uploadingFor);
     if (!application) return null;
     return <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <Card className="bg-white max-w-lg w-full p-6">
+        <Card className="bg-white max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-slate-900">Upload Roll Number Slip</h2>
+            <h2 className="text-slate-900">Upload Admission Letter</h2>
             <button
       onClick={() => {
         setUploadingFor(null);
-        setUploadForm({ rollNumber: "", fileName: "", file: null });
+        setUploadForm({ letterNumber: "", fileName: "", file: null, remarks: "" });
       }}
       className="text-slate-400 hover:text-slate-600"
     >
@@ -195,44 +235,53 @@ function RollNumberManagement() {
                   <div className="text-slate-900">{application.studentName}</div>
                 </div>
                 <div>
-                  <span className="text-slate-600">Application ID:</span>
-                  <div className="text-slate-900">{application.id}</div>
+                  <span className="text-slate-600">Email:</span>
+                  <div className="text-slate-900">{application.studentEmail}</div>
+                </div>
+                <div>
+                  <span className="text-slate-600">Roll Number:</span>
+                  <div className="text-slate-900">{application.rollNumber}</div>
+                </div>
+                <div>
+                  <span className="text-slate-600">Merit Position:</span>
+                  <div className="text-slate-900">#{application.meritPosition}</div>
                 </div>
                 <div>
                   <span className="text-slate-600">Program:</span>
                   <div className="text-slate-900">{application.program}</div>
                 </div>
                 <div>
-                  <span className="text-slate-600">Merit:</span>
+                  <span className="text-slate-600">Merit Score:</span>
                   <div className="text-slate-900">{application.merit}%</div>
                 </div>
               </div>
             </div>
 
             {
-      /* Roll Number */
+      /* Letter Number */
     }
             <div>
-              <Label htmlFor="rollNumber">Assign Roll Number *</Label>
+              <Label htmlFor="letterNumber">Admission Letter Number *</Label>
               <Input
-      id="rollNumber"
-      placeholder="e.g., BSCS-2025-001"
-      value={uploadForm.rollNumber}
-      onChange={(e) => setUploadForm({ ...uploadForm, rollNumber: e.target.value })}
+      id="letterNumber"
+      placeholder="e.g., ADM/CS/2025/001"
+      value={uploadForm.letterNumber}
+      onChange={(e) => setUploadForm({ ...uploadForm, letterNumber: e.target.value })}
       className="mt-2"
     />
+              <p className="text-xs text-slate-500 mt-1">Enter the official admission letter reference number</p>
             </div>
 
             {
       /* File Upload */
     }
             <div>
-              <Label htmlFor="file">Upload Roll Number Slip (PDF) *</Label>
+              <Label htmlFor="file">Upload Admission Letter (PDF) *</Label>
               <div className="mt-2">
                 <input
       type="file"
       id="file"
-      accept=".pdf,.jpg,.jpeg,.png"
+      accept=".pdf"
       onChange={handleFileChange}
       className="hidden"
     />
@@ -242,7 +291,7 @@ function RollNumberManagement() {
     >
                   <Upload className="w-5 h-5 text-slate-400" />
                   <span className="text-slate-600">
-                    {uploadForm.fileName || "Click to upload file"}
+                    {uploadForm.fileName || "Click to upload PDF file"}
                   </span>
                 </label>
                 {uploadForm.fileName && <div className="mt-2 text-sm text-slate-600 flex items-center gap-2">
@@ -250,6 +299,21 @@ function RollNumberManagement() {
                     {uploadForm.fileName}
                   </div>}
               </div>
+            </div>
+
+            {
+      /* Remarks */
+    }
+            <div>
+              <Label htmlFor="remarks">Remarks (Optional)</Label>
+              <Textarea
+      id="remarks"
+      placeholder="Add any additional notes or instructions..."
+      value={uploadForm.remarks}
+      onChange={(e) => setUploadForm({ ...uploadForm, remarks: e.target.value })}
+      className="mt-2"
+      rows={3}
+    />
             </div>
           </div>
 
@@ -260,7 +324,7 @@ function RollNumberManagement() {
             <Button
       onClick={() => {
         setUploadingFor(null);
-        setUploadForm({ rollNumber: "", fileName: "", file: null });
+        setUploadForm({ letterNumber: "", fileName: "", file: null, remarks: "" });
       }}
       variant="outline"
       className="flex-1"
@@ -268,24 +332,24 @@ function RollNumberManagement() {
               Cancel
             </Button>
             <Button
-      onClick={handleUploadSlip}
+      onClick={handleUploadLetter}
       className="flex-1 gap-2"
-      disabled={!uploadForm.rollNumber || !uploadForm.file}
+      disabled={!uploadForm.letterNumber || !uploadForm.file}
     >
               <Upload className="w-4 h-4" />
-              Upload
+              Upload Letter
             </Button>
           </div>
         </Card>
       </div>;
   }
-  if (viewingSlip && viewingSlip.rollNumberSlip) {
+  if (viewingLetter && viewingLetter.admissionLetter) {
     return <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
         <Card className="bg-white max-w-2xl w-full p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-slate-900">Roll Number Slip Details</h2>
+            <h2 className="text-slate-900">Admission Letter Details</h2>
             <button
-      onClick={() => setViewingSlip(null)}
+      onClick={() => setViewingLetter(null)}
       className="text-slate-400 hover:text-slate-600"
     >
               <X className="w-5 h-5" />
@@ -301,48 +365,63 @@ function RollNumberManagement() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-slate-600">Student Name:</span>
-                  <div className="text-slate-900">{viewingSlip.studentName}</div>
+                  <div className="text-slate-900">{viewingLetter.studentName}</div>
                 </div>
                 <div>
                   <span className="text-slate-600">Email:</span>
-                  <div className="text-slate-900">{viewingSlip.studentEmail}</div>
+                  <div className="text-slate-900">{viewingLetter.studentEmail}</div>
                 </div>
                 <div>
                   <span className="text-slate-600">Program:</span>
-                  <div className="text-slate-900">{viewingSlip.program}</div>
+                  <div className="text-slate-900">{viewingLetter.program}</div>
                 </div>
                 <div>
                   <span className="text-slate-600">Department:</span>
-                  <div className="text-slate-900">{viewingSlip.department}</div>
+                  <div className="text-slate-900">{viewingLetter.department}</div>
                 </div>
                 <div>
                   <span className="text-slate-600">Roll Number:</span>
-                  <div className="text-slate-900">{viewingSlip.rollNumber}</div>
+                  <div className="text-slate-900">{viewingLetter.rollNumber}</div>
                 </div>
                 <div>
-                  <span className="text-slate-600">Merit:</span>
-                  <div className="text-slate-900">{viewingSlip.merit}%</div>
+                  <span className="text-slate-600">Merit Position:</span>
+                  <div className="text-slate-900">#{viewingLetter.meritPosition}</div>
                 </div>
               </div>
             </div>
 
             {
-      /* Slip Details */
+      /* Letter Details */
     }
             <div className="bg-slate-50 rounded-lg p-4">
-              <h3 className="text-slate-900 mb-4">Slip Information</h3>
+              <h3 className="text-slate-900 mb-4">Letter Information</h3>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
+                  <span className="text-slate-600">Letter Number:</span>
+                  <div className="text-slate-900">{viewingLetter.admissionLetter.letterNumber}</div>
+                </div>
+                <div>
                   <span className="text-slate-600">File Name:</span>
-                  <div className="text-slate-900">{viewingSlip.rollNumberSlip.fileName}</div>
+                  <div className="text-slate-900">{viewingLetter.admissionLetter.fileName}</div>
                 </div>
                 <div>
                   <span className="text-slate-600">Upload Date:</span>
-                  <div className="text-slate-900">{viewingSlip.rollNumberSlip.uploadDate}</div>
+                  <div className="text-slate-900">{viewingLetter.admissionLetter.uploadDate}</div>
                 </div>
                 <div>
                   <span className="text-slate-600">Uploaded By:</span>
-                  <div className="text-slate-900">{viewingSlip.rollNumberSlip.uploadedBy}</div>
+                  <div className="text-slate-900">{viewingLetter.admissionLetter.uploadedBy}</div>
+                </div>
+                <div>
+                  <span className="text-slate-600">Status:</span>
+                  <div>
+                    {viewingLetter.admissionLetter.sentToStudent ? <Badge className="bg-green-100 text-green-700 gap-1">
+                        <CheckCircle className="w-3 h-3" />
+                        Sent to Student
+                      </Badge> : <Badge variant="outline" className="text-amber-700 border-amber-300">
+                        Not Sent
+                      </Badge>}
+                  </div>
                 </div>
               </div>
             </div>
@@ -353,16 +432,26 @@ function RollNumberManagement() {
     }
           <div className="flex gap-3 mt-6">
             <Button
-      onClick={() => handleDownloadSlip(viewingSlip)}
+      onClick={() => handleDownloadLetter(viewingLetter)}
       variant="outline"
       className="flex-1 gap-2"
     >
               <Download className="w-4 h-4" />
-              Download Slip
+              Download
             </Button>
+            {!viewingLetter.admissionLetter.sentToStudent && <Button
+      onClick={() => {
+        handleSendToStudent(viewingLetter.id);
+        setViewingLetter(null);
+      }}
+      className="flex-1 gap-2"
+    >
+                <Send className="w-4 h-4" />
+                Send to Student
+              </Button>}
             <Button
-      onClick={() => setViewingSlip(null)}
-      className="flex-1"
+      onClick={() => setViewingLetter(null)}
+      variant="outline"
     >
               Close
             </Button>
@@ -375,36 +464,37 @@ function RollNumberManagement() {
     /* Header */
   }
       <div>
-        <h1 className="text-slate-900 mb-2">Roll Number Management</h1>
+        <h1 className="text-slate-900 mb-2">Admission Letter Management</h1>
         <p className="text-slate-600">
-          Manage and upload roll number slips for accepted students
+          Upload and manage admission letters for students who have secured their place in the merit list
         </p>
       </div>
 
       {
     /* Stats Cards */
   }
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid md:grid-cols-4 gap-6">
         <Card className="bg-white border border-slate-200 p-6">
           <div className="flex items-center justify-between mb-2">
-            <div className="text-slate-600 text-sm">Total Accepted</div>
+            <div className="text-slate-600 text-sm">Total Students</div>
             <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
               <User className="w-5 h-5 text-blue-600" />
             </div>
           </div>
           <div className="text-slate-900 text-3xl">{stats.total}</div>
+          <div className="text-xs text-slate-500 mt-1">With roll numbers</div>
         </Card>
 
         <Card className="bg-white border border-slate-200 p-6">
           <div className="flex items-center justify-between mb-2">
-            <div className="text-slate-600 text-sm">Slips Uploaded</div>
+            <div className="text-slate-600 text-sm">Letters Uploaded</div>
             <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
               <CheckCircle className="w-5 h-5 text-green-600" />
             </div>
           </div>
-          <div className="text-slate-900 text-3xl">{stats.withSlip}</div>
+          <div className="text-slate-900 text-3xl">{stats.withLetter}</div>
           <div className="text-xs text-slate-500 mt-1">
-            {(stats.withSlip / stats.total * 100).toFixed(0)}% completed
+            {(stats.withLetter / stats.total * 100).toFixed(0)}% completed
           </div>
         </Card>
 
@@ -416,6 +506,16 @@ function RollNumberManagement() {
             </div>
           </div>
           <div className="text-slate-900 text-3xl">{stats.pending}</div>
+        </Card>
+
+        <Card className="bg-white border border-slate-200 p-6">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-slate-600 text-sm">Sent to Students</div>
+            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+              <Send className="w-5 h-5 text-purple-600" />
+            </div>
+          </div>
+          <div className="text-slate-900 text-3xl">{stats.sent}</div>
         </Card>
       </div>
 
@@ -431,7 +531,7 @@ function RollNumberManagement() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
             <Input
     type="text"
-    placeholder="Search by name, email, program, or roll number..."
+    placeholder="Search by name, email, roll number, or program..."
     value={searchQuery}
     onChange={(e) => setSearchQuery(e.target.value)}
     className="pl-10"
@@ -463,60 +563,68 @@ function RollNumberManagement() {
           <table className="w-full">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th className="text-left px-6 py-4 text-sm text-slate-600">Application ID</th>
-                <th className="text-left px-6 py-4 text-sm text-slate-600">Student Name</th>
+                <th className="text-left px-6 py-4 text-sm text-slate-600">Student Details</th>
                 <th className="text-left px-6 py-4 text-sm text-slate-600">Program</th>
-                <th className="text-left px-6 py-4 text-sm text-slate-600">Department</th>
-                <th className="text-left px-6 py-4 text-sm text-slate-600">Merit</th>
                 <th className="text-left px-6 py-4 text-sm text-slate-600">Roll Number</th>
+                <th className="text-left px-6 py-4 text-sm text-slate-600">Merit</th>
+                <th className="text-left px-6 py-4 text-sm text-slate-600">Letter Number</th>
                 <th className="text-left px-6 py-4 text-sm text-slate-600">Status</th>
                 <th className="text-left px-6 py-4 text-sm text-slate-600">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {filteredApplications.length === 0 ? <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                     No applications found
                   </td>
                 </tr> : filteredApplications.map((app) => <tr key={app.id} className="hover:bg-slate-50">
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <Hash className="w-4 h-4 text-slate-400" />
-                        <span className="text-slate-900">{app.id}</span>
+                      <div>
+                        <div className="text-slate-900 flex items-center gap-2">
+                          {app.studentName}
+                          {app.meritPosition <= 3 && <Award className="w-4 h-4 text-amber-500" />}
+                        </div>
+                        <div className="text-xs text-slate-500">{app.studentEmail}</div>
+                        <div className="text-xs text-slate-500">Position: #{app.meritPosition}</div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div>
-                        <div className="text-slate-900">{app.studentName}</div>
-                        <div className="text-xs text-slate-500">{app.studentEmail}</div>
+                      <div className="text-slate-900">{app.program}</div>
+                      <div className="text-xs text-slate-500">{app.department}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <Hash className="w-4 h-4 text-slate-400" />
+                        <span className="text-slate-900">{app.rollNumber}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-slate-700">{app.program}</td>
-                    <td className="px-6 py-4 text-slate-700">{app.department}</td>
                     <td className="px-6 py-4">
                       <Badge className="bg-emerald-100 text-emerald-700">
                         {app.merit}%
                       </Badge>
                     </td>
                     <td className="px-6 py-4">
-                      {app.rollNumber ? <span className="text-slate-900">{app.rollNumber}</span> : <span className="text-slate-400 text-sm">Not assigned</span>}
+                      {app.admissionLetter ? <span className="text-slate-900 text-sm">{app.admissionLetter.letterNumber}</span> : <span className="text-slate-400 text-sm">Not assigned</span>}
                     </td>
                     <td className="px-6 py-4">
-                      {app.rollNumberSlip ? <Badge className="bg-green-100 text-green-700 gap-1">
-                          <CheckCircle className="w-3 h-3" />
-                          Uploaded
-                        </Badge> : <Badge variant="outline" className="text-amber-700 border-amber-300 gap-1">
+                      {app.admissionLetter ? app.admissionLetter.sentToStudent ? <Badge className="bg-green-100 text-green-700 gap-1">
+                            <CheckCircle className="w-3 h-3" />
+                            Sent
+                          </Badge> : <Badge className="bg-blue-100 text-blue-700 gap-1">
+                            <FileText className="w-3 h-3" />
+                            Uploaded
+                          </Badge> : <Badge variant="outline" className="text-amber-700 border-amber-300 gap-1">
                           <Upload className="w-3 h-3" />
                           Pending
                         </Badge>}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex gap-2">
-                        {app.rollNumberSlip ? <>
+                        {app.admissionLetter ? <>
                             <Button
     size="sm"
     variant="outline"
-    onClick={() => setViewingSlip(app)}
+    onClick={() => setViewingLetter(app)}
     className="gap-1"
   >
                               <Eye className="w-4 h-4" />
@@ -525,15 +633,23 @@ function RollNumberManagement() {
                             <Button
     size="sm"
     variant="outline"
-    onClick={() => handleDownloadSlip(app)}
+    onClick={() => handleDownloadLetter(app)}
     className="gap-1"
   >
                               <Download className="w-4 h-4" />
                             </Button>
+                            {!app.admissionLetter.sentToStudent && <Button
+    size="sm"
+    onClick={() => handleSendToStudent(app.id)}
+    className="gap-1"
+  >
+                                <Send className="w-4 h-4" />
+                                Send
+                              </Button>}
                             <Button
     size="sm"
     variant="outline"
-    onClick={() => handleDeleteSlip(app.id)}
+    onClick={() => handleDeleteLetter(app.id)}
     className="text-red-600 hover:text-red-700"
   >
                               <X className="w-4 h-4" />
@@ -544,7 +660,7 @@ function RollNumberManagement() {
     className="gap-1"
   >
                             <Upload className="w-4 h-4" />
-                            Upload Slip
+                            Upload Letter
                           </Button>}
                       </div>
                     </td>
@@ -558,10 +674,10 @@ function RollNumberManagement() {
     /* Summary */
   }
       {filteredApplications.length > 0 && <div className="text-sm text-slate-600 text-center">
-          Showing {filteredApplications.length} of {applications.length} accepted applications
+          Showing {filteredApplications.length} of {applications.length} students with roll numbers
         </div>}
     </div>;
 }
 export {
-  RollNumberManagement
+  AdmissionLetterManagement
 };

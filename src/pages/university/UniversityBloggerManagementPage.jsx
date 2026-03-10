@@ -1,4 +1,4 @@
-import { BloggerManagement } from "../../components/BloggerManagement";
+import { BloggerManagement } from "../../components/university/BloggerManagement";
 import { useAuth } from "../../context/AuthContext";
 
 export const UniversityBloggerManagementPage = () => {

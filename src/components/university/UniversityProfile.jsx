@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Save, Upload, Building, Phone, MapPin, Users } from "lucide-react";
-import { Card } from "./ui/card";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
+import { Card } from "../ui/card";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 function UniversityProfile({ universityId, initialName }) {
   const [isEditing, setIsEditing] = useState(false);
   const [profileData, setProfileData] = useState(() => {
@@ -78,7 +78,7 @@ function UniversityProfile({ universityId, initialName }) {
   }
       <Card className="bg-white border border-slate-200 p-6">
         <div className="flex items-center gap-6">
-          <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center overflow-hidden">
+          <div className="w-24 h-24 bg-linear-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center overflow-hidden">
             {profileData.logo ? <img src={profileData.logo} alt="University Logo" className="w-full h-full object-cover" /> : <Building className="w-12 h-12 text-white" />}
           </div>
           <div className="flex-1">

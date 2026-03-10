@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { School, MapPin, DollarSign, Calendar, TrendingUp } from "lucide-react";
-import { ApplicationFormModal } from "./ApplicationFormModal";
+import { useAuth } from "../../context/AuthContext";
+import { ApplicationFormModal } from "../ApplicationFormModal";
 const mockUniversities = [
   {
     id: "1",
@@ -154,6 +155,7 @@ function UniversityRecommendations() {
     </div>;
 }
 function UniversityCard({ university }) {
+  const { currentUser } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [showApplicationForm, setShowApplicationForm] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState("");
@@ -209,7 +211,7 @@ function UniversityCard({ university }) {
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
             <div className="flex items-start gap-3">
-              <div className="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <div className="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center shrink-0">
                 <School className="w-6 h-6 text-emerald-600" />
               </div>
               <div className="flex-1">
@@ -282,6 +284,7 @@ function UniversityCard({ university }) {
     formFields={universityFormFields}
     onClose={() => setShowApplicationForm(false)}
     onSubmit={handleSubmitApplication}
+    studentId={currentUser?.id}
   />}
     </div>;
 }

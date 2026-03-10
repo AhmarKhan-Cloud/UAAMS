@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { Plus, Edit, Trash2, Eye, Calendar, Clock, Save, X, Building2, LogOut } from "lucide-react";
-import { Card } from "./ui/card";
-import { Input } from "./ui/input";
-import { Textarea } from "./ui/textarea";
-import { Button } from "./ui/button";
-import { Badge } from "./ui/badge";
-import { Label } from "./ui/label";
-function BloggerDashboard({ user, onLogout }) {
+import { Plus, Edit, Trash2, Eye, Calendar, Clock, Save, X } from "lucide-react";
+import { Card } from "../ui/card";
+import { Input } from "../ui/input";
+import { Textarea } from "../ui/textarea";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
+import { Building2 } from "lucide-react"; 
+import { Label } from "../ui/label";
+function BloggerDashboard({ user }) {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingPost, setEditingPost] = useState(null);
   const [previewPost, setPreviewPost] = useState(null);
@@ -176,25 +177,13 @@ Don't be afraid to ask questions in class or during office hours. Curiosity is t
         {
       /* Header */
     }
-        <header className="bg-white border-b sticky top-0 z-40">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <Building2 className="w-8 h-8 text-blue-600" />
-                <div>
-                  <div className="text-slate-900">UAAMS</div>
-                  <div className="text-slate-600 text-sm">Blogger Portal - Preview</div>
-                </div>
-              </div>
-              <Button onClick={() => setPreviewPost(null)} variant="outline">
+     
+
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <Button onClick={() => setPreviewPost(null)} variant="outline">
                 <X className="w-4 h-4 mr-2" />
                 Close Preview
               </Button>
-            </div>
-          </div>
-        </header>
-
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Card className="bg-white border border-slate-200 overflow-hidden">
             <img
       src={previewPost.imageUrl}
@@ -243,29 +232,7 @@ Don't be afraid to ask questions in class or during office hours. Curiosity is t
         {
       /* Header */
     }
-        <header className="bg-white border-b sticky top-0 z-40">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <Building2 className="w-8 h-8 text-blue-600" />
-                <div>
-                  <div className="text-slate-900">UAAMS</div>
-                  <div className="text-slate-600 text-sm">Blogger Portal</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="text-slate-700">{user.name}</span>
-                <button
-      onClick={onLogout}
-      className="flex items-center gap-2 px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-    >
-                  <LogOut className="w-4 h-4" />
-                  Logout
-                </button>
-              </div>
-            </div>
-          </div>
-        </header>
+        
 
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="space-y-6">
@@ -418,37 +385,6 @@ Don't be afraid to ask questions in class or during office hours. Curiosity is t
   const publishedPosts = blogPosts.filter((post) => post.status === "published");
   const draftPosts = blogPosts.filter((post) => post.status === "draft");
   return <div className="min-h-screen bg-slate-50">
-      {
-    /* Header */
-  }
-      <header className="bg-white border-b sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <Building2 className="w-8 h-8 text-blue-600" />
-              <div>
-                <div className="text-slate-900">UAAMS</div>
-                <div className="text-slate-600 text-sm">Blogger Portal</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <Badge className="bg-blue-100 text-blue-700">
-                <Building2 className="w-3 h-3 mr-1" />
-                {bloggerUniversity}
-              </Badge>
-              <span className="text-slate-700">{user.name}</span>
-              <button
-    onClick={onLogout}
-    className="flex items-center gap-2 px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-  >
-                <LogOut className="w-4 h-4" />
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-6">
           {
@@ -498,7 +434,7 @@ Don't be afraid to ask questions in class or during office hours. Curiosity is t
                       {post.imageUrl && <img
     src={post.imageUrl}
     alt={post.title}
-    className="w-48 h-32 object-cover rounded-lg flex-shrink-0"
+    className="w-48 h-32 object-cover rounded-lg shrink-0"
   />}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-4 mb-3">
@@ -520,7 +456,7 @@ Don't be afraid to ask questions in class or during office hours. Curiosity is t
                               </Badge>
                             </div>
                           </div>
-                          <Badge className="bg-green-100 text-green-700 flex-shrink-0">
+                          <Badge className="bg-green-100 text-green-700 shrink-0">
                             Published
                           </Badge>
                         </div>
@@ -584,7 +520,7 @@ Don't be afraid to ask questions in class or during office hours. Curiosity is t
                       {post.imageUrl && <img
     src={post.imageUrl}
     alt={post.title}
-    className="w-48 h-32 object-cover rounded-lg flex-shrink-0"
+    className="w-48 h-32 object-cover rounded-lg shrink-0"
   />}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-4 mb-3">
@@ -606,7 +542,7 @@ Don't be afraid to ask questions in class or during office hours. Curiosity is t
                               </Badge>
                             </div>
                           </div>
-                          <Badge variant="outline" className="flex-shrink-0">
+                          <Badge variant="outline" className="shrink-0">
                             Draft
                           </Badge>
                         </div>

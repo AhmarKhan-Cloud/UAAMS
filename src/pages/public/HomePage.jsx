@@ -37,7 +37,7 @@ export const HomePage = () => {
     <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
       <section className="rounded-3xl border border-emerald-100 bg-white p-8 shadow-sm lg:p-12">
         <p className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs text-emerald-700">
-          Final Year Project Frontend
+          Final Year Project
         </p>
         <h1 className="mt-4 max-w-3xl text-4xl text-slate-900">
           University Admission Management System with Role-Based Workflows
@@ -47,19 +47,19 @@ export const HomePage = () => {
           and dashboard-first UX for students, universities, bloggers, and admins.
         </p>
 
-        <div className="mt-8 flex flex-wrap gap-3">
+        <div className="mt-8 flex flex-wrap gap-3 items-center">
           <Link
             to="/register"
-            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-3 text-white transition-colors hover:bg-emerald-700"
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-6 py-3 text-white transition-colors hover:bg-emerald-700"
           >
-            Start Registration
-            <ArrowRight className="h-4 w-4" />
+            <p>Start Registration</p>
+            <ArrowRight className="h-4 w-5" />
           </Link>
           <Link
             to="/login"
-            className="rounded-lg border border-slate-300 bg-white px-5 py-3 text-slate-700 transition-colors hover:bg-slate-50"
+            className="rounded-lg border border-slate-300 bg-white px-6 py-3 text-slate-700 transition-colors hover:bg-slate-50"
           >
-            Sign In
+            <p>Sign In</p>
           </Link>
         </div>
       </section>

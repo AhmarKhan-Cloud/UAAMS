@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Plus, Edit, Trash2, Eye, Calendar, Clock, Save, X } from "lucide-react";
-import { Card } from "./ui/card";
-import { Input } from "./ui/input";
-import { Textarea } from "./ui/textarea";
-import { Button } from "./ui/button";
-import { Badge } from "./ui/badge";
-import { Label } from "./ui/label";
+import { Card } from "../ui/card";
+import { Input } from "../ui/input";
+import { Textarea } from "../ui/textarea";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
+import { Label } from "../ui/label";
 function UniversityBlog() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingPost, setEditingPost] = useState(null);

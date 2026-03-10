@@ -24,9 +24,9 @@ export const StudentOverviewPage = () => {
     >
       <MetricGrid metrics={metrics} />
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4">
         <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-slate-900">Quick Actions</h2>
+          <h2 className="text-slate-900 ">Quick Actions</h2>
           <div className="mt-3 grid gap-2">
             {quickLinks.map((item) => (
               <Link
@@ -40,14 +40,7 @@ export const StudentOverviewPage = () => {
           </div>
         </article>
 
-        <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-slate-900">This Week Focus</h2>
-          <ul className="mt-3 space-y-2 text-sm text-slate-600">
-            <li className="rounded-lg bg-emerald-50 px-3 py-2">Review scholarship deadlines for top 3 universities.</li>
-            <li className="rounded-lg bg-blue-50 px-3 py-2">Upload missing transcript documents.</li>
-            <li className="rounded-lg bg-purple-50 px-3 py-2">Read new admission policy announcements.</li>
-          </ul>
-        </article>
+
       </div>
     </DashboardPageShell>
   );

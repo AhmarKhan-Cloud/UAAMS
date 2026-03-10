@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Plus, Edit, Trash2, Mail, Building2, User, Key, X, Calendar } from "lucide-react";
-import { Card } from "./ui/card";
-import { Input } from "./ui/input";
-import { Button } from "./ui/button";
-import { Badge } from "./ui/badge";
-import { Label } from "./ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
+import { Card } from "../ui/card";
+import { Input } from "../ui/input";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
+import { Label } from "../ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
 function BloggerManagement() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingBlogger, setEditingBlogger] = useState(null);

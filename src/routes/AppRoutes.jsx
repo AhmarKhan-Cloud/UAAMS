@@ -5,7 +5,6 @@ import { PublicLayout } from "../layouts/PublicLayout";
 import { LoginPage } from "../pages/auth/LoginPage";
 import { RegisterPage } from "../pages/auth/RegisterPage";
 import { HomePage } from "../pages/public/HomePage";
-import { MarketingPage } from "../pages/public/MarketingPage";
 import { NotFoundPage } from "../pages/shared/NotFoundPage";
 import { UnauthorizedPage } from "../pages/shared/UnauthorizedPage";
 import { resolveRolePath } from "../utils/rolePaths";
@@ -40,76 +39,6 @@ export const AppRoutes = () => {
     <Routes>
       <Route path="/" element={<PublicLayout />}>
         <Route index element={<HomePage />} />
-        <Route
-          path="programs"
-          element={
-            <MarketingPage
-              title="Academic Programs"
-              description="Explore degree offerings, eligibility rules, and admission intakes across partner universities."
-              points={[
-                "Engineering, Computing, Business, and Arts programs",
-                "Merit and quota based seat categories",
-                "Program-wise fee and timeline summaries",
-              ]}
-            />
-          }
-        />
-        <Route
-          path="scholarships"
-          element={
-            <MarketingPage
-              title="Scholarship Opportunities"
-              description="Compare need-based and merit-based aid opportunities before applying."
-              points={[
-                "Scholarship calculator with eligibility guidance",
-                "Fee waiver and stipend coverage details",
-                "Application checklist and due dates",
-              ]}
-            />
-          }
-        />
-        <Route
-          path="events"
-          element={
-            <MarketingPage
-              title="Admission Events"
-              description="Track open houses, webinars, and test-prep sessions from universities."
-              points={[
-                "University open-house schedules",
-                "Live Q&A and orientation events",
-                "Registration and attendance tracker",
-              ]}
-            />
-          }
-        />
-        <Route
-          path="contact"
-          element={
-            <MarketingPage
-              title="Contact and Support"
-              description="Get help with applications, technical issues, and account verification."
-              points={[
-                "Dedicated support channels by role",
-                "Issue escalation matrix",
-                "Service-level timelines",
-              ]}
-            />
-          }
-        />
-        <Route
-          path="faq"
-          element={
-            <MarketingPage
-              title="Frequently Asked Questions"
-              description="Answers to the most common student, university, and admin queries."
-              points={[
-                "How to apply to multiple universities",
-                "How university approval workflow works",
-                "How to track merit list and admission status",
-              ]}
-            />
-          }
-        />
         <Route path="login" element={<LoginPage />} />
         <Route path="register" element={<RegisterPage />} />
         <Route path="unauthorized" element={<UnauthorizedPage />} />

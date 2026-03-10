@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Search, Calendar, Clock, Tag, ChevronRight, BookOpen } from "lucide-react";
-import { Card } from "./ui/card";
-import { Input } from "./ui/input";
-import { Badge } from "./ui/badge";
+import { Card } from "../ui/card";
+import { Input } from "../ui/input";
+import { Badge } from "../ui/badge";
 function StudentBlog() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");

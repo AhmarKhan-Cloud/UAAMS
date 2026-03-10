@@ -285,6 +285,7 @@ function AuthModal({ mode, role, onClose, onLogin }) {
     name="name"
     value={formData.name}
     onChange={handleChange}
+    placeholder={role === "student" ? "Enter your full name" : role === "blogger" ? "Enter your blogger name" : "Enter admin name"}
     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
     required={!isLogin}
   />
@@ -319,6 +320,7 @@ function AuthModal({ mode, role, onClose, onLogin }) {
     name="password"
     value={formData.password}
     onChange={handleChange}
+    placeholder="Enter your password"
     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
     required
   />
@@ -331,6 +333,7 @@ function AuthModal({ mode, role, onClose, onLogin }) {
     name="confirmPassword"
     value={formData.confirmPassword}
     onChange={handleChange}
+    placeholder="Re-enter your password"
     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
     required={!isLogin}
   />

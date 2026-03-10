@@ -1,9 +1,10 @@
 const path = require("path");
 const { defineConfig } = require("vite");
 const react = require("@vitejs/plugin-react-swc");
+const tailwindcss = require("@tailwindcss/vite").default;
 
 module.exports = defineConfig({
-  plugins: [react()],
+  plugins: [tailwindcss(), react()],
   resolve: {
     extensions: [".js", ".jsx", ".json"],
     alias: {

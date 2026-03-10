@@ -1,4 +1,4 @@
-import { StudentProfile } from "../../components/StudentProfile";
+import { StudentProfile } from "../../components/student/StudentProfile";
 import { useAuth } from "../../context/AuthContext";
 
 export const StudentProfilePage = () => {

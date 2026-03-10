@@ -1,4 +1,4 @@
-import { Card } from "./ui/card";
+import { Card } from "../ui/card";
 import { Users, School, PenTool, CheckCircle, TrendingUp, FileText, AlertCircle } from "lucide-react";
 function AdminOverview() {
   const stats = {
