@@ -3,21 +3,16 @@ import { Link, NavLink, Outlet } from "react-router-dom";
 
 const publicLinks = [
   { to: "/", label: "Home" },
-  { to: "/programs", label: "Programs" },
-  { to: "/scholarships", label: "Scholarships" },
-  { to: "/events", label: "Events" },
-  { to: "/contact", label: "Contact" },
-  { to: "/faq", label: "FAQ" },
 ];
 
 export const PublicLayout = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50">
+    <div className="min-h-screen bg-linear-to-br from-emerald-50 via-white to-blue-50">
       <header className="sticky top-0 z-50 border-b bg-white/90 backdrop-blur-sm">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <Link to="/" className="flex items-center gap-2 text-emerald-900">
             <GraduationCap className="h-8 w-8 text-emerald-600" />
-            <span>UAAMS</span>
+            <span >UAAMS</span>
           </Link>
 
           <nav className="hidden items-center gap-1 md:flex">

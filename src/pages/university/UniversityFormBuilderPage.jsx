@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FormBuilder } from "../../components/FormBuilder";
+import { FormBuilder } from "../../components/university/FormBuilder";
 import { DashboardPageShell } from "../shared/DashboardPageShell";
 import { useAuth } from "../../context/AuthContext";
 

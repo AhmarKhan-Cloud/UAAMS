@@ -1,4 +1,4 @@
-import { AdminOverview } from "../../components/AdminOverview";
+import { AdminOverview } from "../../components/admin/AdminOverview";
 import { DashboardPageShell } from "../shared/DashboardPageShell";
 import { MetricGrid } from "../shared/MetricGrid";
 

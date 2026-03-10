@@ -1,4 +1,4 @@
-import { UniversityProfile } from "../../components/UniversityProfile";
+import { UniversityProfile } from "../../components/university/UniversityProfile";
 import { useAuth } from "../../context/AuthContext";
 
 export const UniversityProfilePage = () => {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { Button } from "./ui/button";
 function ApplicationFormModal({
@@ -6,10 +6,59 @@ function ApplicationFormModal({
   programName,
   formFields,
   onClose,
-  onSubmit
+  onSubmit,
+  studentId
 }) {
   const [formData, setFormData] = useState({});
   const [errors, setErrors] = useState({});
+
+  // Auto-fill form from student profile on mount
+  useEffect(() => {
+    if (studentId) {
+      const profileData = localStorage.getItem(`studentProfile_${studentId}`);
+      if (profileData) {
+        const profile = JSON.parse(profileData);
+        const autoFilledData = {};
+
+        // Map student profile fields to form fields
+        formFields.forEach((field) => {
+          const fieldLabelLower = field.label.toLowerCase();
+          
+          if (fieldLabelLower.includes("full name") || fieldLabelLower.includes("name")) {
+            if (profile.fullName) autoFilledData[field.id] = profile.fullName;
+          } else if (fieldLabelLower.includes("email")) {
+            if (profile.email) autoFilledData[field.id] = profile.email;
+          } else if (fieldLabelLower.includes("phone")) {
+            if (profile.phone) autoFilledData[field.id] = profile.phone;
+          } else if (fieldLabelLower.includes("cnic") || fieldLabelLower.includes("b-form")) {
+            if (profile.cnic) autoFilledData[field.id] = profile.cnic;
+          } else if (fieldLabelLower.includes("father")) {
+            if (profile.fatherName) autoFilledData[field.id] = profile.fatherName;
+          } else if (fieldLabelLower.includes("date of birth")) {
+            if (profile.dateOfBirth) autoFilledData[field.id] = profile.dateOfBirth;
+          } else if (fieldLabelLower.includes("gender")) {
+            if (profile.gender) autoFilledData[field.id] = profile.gender;
+          } else if (fieldLabelLower.includes("matric") && fieldLabelLower.includes("mark")) {
+            if (profile.matricObtainedMarks) autoFilledData[field.id] = profile.matricObtainedMarks;
+          } else if (fieldLabelLower.includes("fsc") || (fieldLabelLower.includes("a-level") && fieldLabelLower.includes("mark"))) {
+            if (profile.interObtainedMarks) autoFilledData[field.id] = profile.interObtainedMarks;
+          } else if (fieldLabelLower.includes("aggregate")) {
+            if (profile.aggregate) autoFilledData[field.id] = profile.aggregate;
+          } else if (fieldLabelLower.includes("address")) {
+            if (profile.address) autoFilledData[field.id] = profile.address;
+          } else if (fieldLabelLower.includes("city")) {
+            if (profile.city) autoFilledData[field.id] = profile.city;
+          } else if (fieldLabelLower.includes("province")) {
+            if (profile.province) autoFilledData[field.id] = profile.province;
+          } else if (fieldLabelLower.includes("postal")) {
+            if (profile.postalCode) autoFilledData[field.id] = profile.postalCode;
+          }
+        });
+
+        setFormData(autoFilledData);
+      }
+    }
+  }, [studentId, formFields]);
   const handleChange = (fieldId, value) => {
     setFormData({ ...formData, [fieldId]: value });
     if (errors[fieldId]) {

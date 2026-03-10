@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { UniversityOverview } from "../../components/UniversityOverview";
+import { UniversityOverview } from "../../components/university/UniversityOverview";
 
 const routeMap = {
   applications: "/university/applications",

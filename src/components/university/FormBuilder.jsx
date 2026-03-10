@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Plus, Trash2, MoveUp, MoveDown, Save, Eye } from "lucide-react";
-import { Card } from "./ui/card";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Badge } from "./ui/badge";
+import { Card } from "../ui/card";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Badge } from "../ui/badge";
 function FormBuilder({ universityId, onSave, initialFields = [] }) {
   const [fields, setFields] = useState(initialFields.length > 0 ? initialFields : [
     { id: "1", label: "Full Name", type: "text", required: true, placeholder: "Enter your full name" },

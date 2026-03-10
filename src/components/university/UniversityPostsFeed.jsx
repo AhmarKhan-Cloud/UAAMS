@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { MessageCircle, Heart, Share2, Send, Calendar, MapPin } from "lucide-react";
-import { Card } from "./ui/card";
-import { Avatar } from "./ui/avatar";
-import { Button } from "./ui/button";
-import { Textarea } from "./ui/textarea";
+import { Card } from "../ui/card";
+import { Avatar } from "../ui/avatar";
+import { Button } from "../ui/button";
+import { Textarea } from "../ui/textarea";
 function UniversityPostsFeed() {
   const [posts, setPosts] = useState([
     {
