@@ -1,252 +1,445 @@
-import { Save, Upload } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Save } from "lucide-react";
+import { api } from "../../lib/apiClient";
+
+const defaultSettings = {
+  universityName: "",
+  shortName: "",
+  type: "public",
+  established: "",
+  email: "",
+  phone: "",
+  website: "",
+  address: "",
+  city: "",
+  province: "",
+  postalCode: "",
+  about: "",
+  mission: "",
+  vision: "",
+  totalStudents: "",
+  totalPrograms: "",
+  ranking: "",
+  accreditation: "HEC",
+  representativeName: "",
+  representativePosition: "",
+  representativeEmail: "",
+  representativePhone: "",
+  logo: "",
+  applicationFee: "0",
+  applicationStartDate: "",
+  applicationEndDate: "",
+  acceptApplicationsThroughUaams: true,
+  allowAutoFillFromStudentProfile: true,
+  notifications: {
+    emailOnNewApplication: true,
+    dailySummary: true,
+    smsUrgentUpdates: false,
+  },
+};
+
+const toDateInputValue = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const normalizeProfile = (profile = {}) => ({
+  ...defaultSettings,
+  ...profile,
+  applicationFee: String(profile?.applicationFee ?? 0),
+  applicationStartDate: toDateInputValue(profile?.applicationStartDate),
+  applicationEndDate: toDateInputValue(profile?.applicationEndDate),
+  notifications: {
+    ...defaultSettings.notifications,
+    ...(profile?.notifications || {}),
+  },
+});
+
 function UniversitySettings() {
-  return <div className="space-y-6">
+  const [formData, setFormData] = useState(defaultSettings);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
+  const loadSettings = async () => {
+    setIsLoading(true);
+    setError("");
+    try {
+      const response = await api.get("/universities/me/settings");
+      const profile = response?.data?.profile || {};
+      setFormData(normalizeProfile(profile));
+    } catch (loadError) {
+      setError(loadError?.message || "Unable to load university settings.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const updateField = (field, value) => {
+    setFormData((previous) => ({ ...previous, [field]: value }));
+    if (error) setError("");
+    if (successMessage) setSuccessMessage("");
+  };
+
+  const updateNotification = (field, value) => {
+    setFormData((previous) => ({
+      ...previous,
+      notifications: {
+        ...previous.notifications,
+        [field]: value,
+      },
+    }));
+    if (error) setError("");
+    if (successMessage) setSuccessMessage("");
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setIsSaving(true);
+    setError("");
+    setSuccessMessage("");
+
+    try {
+      const payload = {
+        ...formData,
+        applicationFee: Number(formData.applicationFee || 0),
+        applicationStartDate: formData.applicationStartDate || null,
+        applicationEndDate: formData.applicationEndDate || null,
+      };
+
+      const response = await api.put("/universities/me/settings", payload);
+      const profile = response?.data?.profile || payload;
+      setFormData(normalizeProfile(profile));
+      setSuccessMessage(response?.message || "Settings saved successfully.");
+    } catch (saveError) {
+      setError(saveError?.message || "Unable to save university settings.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-slate-900 mb-2">University Settings</h1>
+          <p className="text-slate-600">Loading saved settings...</p>
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-600">
+          Fetching configuration...
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
       <div>
         <h1 className="text-slate-900 mb-2">University Settings</h1>
-        <p className="text-slate-600">Manage your university profile and preferences</p>
+        <p className="text-slate-600">
+          Manage university profile and preferences. Programs are managed in Form & Programs page.
+        </p>
       </div>
 
-      {
-    /* Basic Information */
-  }
-      <div className="bg-white rounded-lg border border-slate-200 p-6">
-        <h3 className="text-slate-900 mb-4">Basic Information</h3>
-        <div className="space-y-4">
+      {error ? (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </p>
+      ) : null}
+
+      {successMessage ? (
+        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          {successMessage}
+        </p>
+      ) : null}
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <section className="rounded-lg border border-slate-200 bg-white p-6">
+          <h3 className="text-slate-900 mb-4">Basic Information</h3>
           <div className="grid md:grid-cols-2 gap-4">
+            <Field
+              label="University Name"
+              value={formData.universityName}
+              onChange={(value) => updateField("universityName", value)}
+              required
+            />
+            <Field
+              label="Short Name"
+              value={formData.shortName}
+              onChange={(value) => updateField("shortName", value)}
+            />
+            <Field
+              label="Email"
+              type="email"
+              value={formData.email}
+              onChange={(value) => updateField("email", value)}
+              required
+            />
+            <Field
+              label="Phone"
+              value={formData.phone}
+              onChange={(value) => updateField("phone", value)}
+            />
+            <Field
+              label="Website"
+              type="url"
+              value={formData.website}
+              onChange={(value) => updateField("website", value)}
+            />
+            <Field
+              label="Established"
+              value={formData.established}
+              onChange={(value) => updateField("established", value)}
+            />
+            <Field
+              label="City"
+              value={formData.city}
+              onChange={(value) => updateField("city", value)}
+            />
+            <Field
+              label="Province"
+              value={formData.province}
+              onChange={(value) => updateField("province", value)}
+            />
+            <Field
+              label="Postal Code"
+              value={formData.postalCode}
+              onChange={(value) => updateField("postalCode", value)}
+            />
             <div>
-              <label className="block text-slate-700 mb-2 text-sm">University Name</label>
-              <input
-    type="text"
-    defaultValue="National University of Sciences and Technology"
-    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-  />
-            </div>
-            <div>
-              <label className="block text-slate-700 mb-2 text-sm">Short Name</label>
-              <input
-    type="text"
-    defaultValue="NUST"
-    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-  />
+              <label className="mb-2 block text-sm text-slate-700">Type</label>
+              <select
+                value={formData.type}
+                onChange={(event) => updateField("type", event.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="public">Public</option>
+                <option value="private">Private</option>
+              </select>
             </div>
           </div>
-
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-slate-700 mb-2 text-sm">Email Address</label>
-              <input
-    type="email"
-    defaultValue="admissions@nust.edu.pk"
-    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-  />
-            </div>
-            <div>
-              <label className="block text-slate-700 mb-2 text-sm">Phone Number</label>
-              <input
-    type="tel"
-    defaultValue="+92-51-9085-5555"
-    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-  />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-slate-700 mb-2 text-sm">Address</label>
+          <div className="mt-4">
+            <label className="mb-2 block text-sm text-slate-700">Address</label>
             <textarea
-    defaultValue="H-12, Islamabad, Pakistan"
-    rows={3}
-    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-  />
+              rows={3}
+              value={formData.address}
+              onChange={(event) => updateField("address", event.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
-
-          <div>
-            <label className="block text-slate-700 mb-2 text-sm">Website URL</label>
+          <div className="mt-4">
+            <label className="mb-2 block text-sm text-slate-700">Logo URL</label>
             <input
-    type="url"
-    defaultValue="https://www.nust.edu.pk"
-    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-  />
+              type="url"
+              value={formData.logo}
+              onChange={(event) => updateField("logo", event.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="https://..."
+            />
           </div>
-        </div>
-      </div>
+        </section>
 
-      {
-    /* Logo Upload */
-  }
-      <div className="bg-white rounded-lg border border-slate-200 p-6">
-        <h3 className="text-slate-900 mb-4">University Logo</h3>
-        <div className="flex items-start gap-6">
-          <div className="w-24 h-24 bg-slate-100 rounded-lg flex items-center justify-center border-2 border-dashed border-slate-300">
-            <span className="text-slate-400 text-xs">Logo</span>
+        <section className="rounded-lg border border-slate-200 bg-white p-6">
+          <h3 className="text-slate-900 mb-4">University Profile</h3>
+          <div className="grid md:grid-cols-3 gap-4">
+            <Field
+              label="Total Students"
+              value={formData.totalStudents}
+              onChange={(value) => updateField("totalStudents", value)}
+            />
+            <Field
+              label="Total Programs"
+              value={formData.totalPrograms}
+              onChange={(value) => updateField("totalPrograms", value)}
+            />
+            <Field
+              label="Ranking"
+              value={formData.ranking}
+              onChange={(value) => updateField("ranking", value)}
+            />
           </div>
-          <div className="flex-1">
-            <p className="text-slate-600 text-sm mb-3">
-              Upload your university logo. Recommended size: 256x256px, max 2MB
-            </p>
-            <label className="cursor-pointer">
-              <input type="file" className="hidden" accept="image/*" />
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors">
-                <Upload className="w-4 h-4" />
-                Upload Logo
-              </div>
-            </label>
+          <div className="mt-4">
+            <Field
+              label="Accreditation"
+              value={formData.accreditation}
+              onChange={(value) => updateField("accreditation", value)}
+            />
           </div>
-        </div>
-      </div>
+          <div className="mt-4">
+            <label className="mb-2 block text-sm text-slate-700">About</label>
+            <textarea
+              rows={3}
+              value={formData.about}
+              onChange={(event) => updateField("about", event.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div className="mt-4 grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="mb-2 block text-sm text-slate-700">Mission</label>
+              <textarea
+                rows={3}
+                value={formData.mission}
+                onChange={(event) => updateField("mission", event.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm text-slate-700">Vision</label>
+              <textarea
+                rows={3}
+                value={formData.vision}
+                onChange={(event) => updateField("vision", event.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+        </section>
 
-      {
-    /* Admission Settings */
-  }
-      <div className="bg-white rounded-lg border border-slate-200 p-6">
-        <h3 className="text-slate-900 mb-4">Admission Settings</h3>
-        <div className="space-y-4">
+        <section className="rounded-lg border border-slate-200 bg-white p-6">
+          <h3 className="text-slate-900 mb-4">Admission Settings</h3>
+          <div className="grid md:grid-cols-3 gap-4">
+            <Field
+              label="Application Start Date"
+              type="date"
+              value={formData.applicationStartDate}
+              onChange={(value) => updateField("applicationStartDate", value)}
+            />
+            <Field
+              label="Application End Date"
+              type="date"
+              value={formData.applicationEndDate}
+              onChange={(value) => updateField("applicationEndDate", value)}
+            />
+            <Field
+              label="Application Fee (PKR)"
+              type="number"
+              value={formData.applicationFee}
+              onChange={(value) => updateField("applicationFee", value)}
+            />
+          </div>
+          <div className="mt-4 space-y-3">
+            <CheckboxField
+              label="Accept applications through UAAMS"
+              checked={formData.acceptApplicationsThroughUaams}
+              onChange={(value) => updateField("acceptApplicationsThroughUaams", value)}
+            />
+            <CheckboxField
+              label="Allow auto-fill from student profile"
+              checked={formData.allowAutoFillFromStudentProfile}
+              onChange={(value) => updateField("allowAutoFillFromStudentProfile", value)}
+            />
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-slate-200 bg-white p-6">
+          <h3 className="text-slate-900 mb-4">Admission Office Contact</h3>
           <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-slate-700 mb-2 text-sm">Application Start Date</label>
-              <input
-    type="date"
-    defaultValue="2025-05-01"
-    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-  />
-            </div>
-            <div>
-              <label className="block text-slate-700 mb-2 text-sm">Application End Date</label>
-              <input
-    type="date"
-    defaultValue="2025-06-30"
-    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-  />
-            </div>
+            <Field
+              label="Representative Name"
+              value={formData.representativeName}
+              onChange={(value) => updateField("representativeName", value)}
+            />
+            <Field
+              label="Representative Position"
+              value={formData.representativePosition}
+              onChange={(value) => updateField("representativePosition", value)}
+            />
+            <Field
+              label="Representative Email"
+              type="email"
+              value={formData.representativeEmail}
+              onChange={(value) => updateField("representativeEmail", value)}
+            />
+            <Field
+              label="Representative Phone"
+              value={formData.representativePhone}
+              onChange={(value) => updateField("representativePhone", value)}
+            />
           </div>
+        </section>
 
-          <div>
-            <label className="block text-slate-700 mb-2 text-sm">Application Fee (PKR)</label>
-            <input
-    type="number"
-    defaultValue="2000"
-    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-  />
+        <section className="rounded-lg border border-slate-200 bg-white p-6">
+          <h3 className="text-slate-900 mb-4">Notification Preferences</h3>
+          <div className="space-y-3">
+            <CheckboxField
+              label="Email on new application"
+              checked={formData.notifications.emailOnNewApplication}
+              onChange={(value) => updateNotification("emailOnNewApplication", value)}
+            />
+            <CheckboxField
+              label="Daily summary"
+              checked={formData.notifications.dailySummary}
+              onChange={(value) => updateNotification("dailySummary", value)}
+            />
+            <CheckboxField
+              label="SMS for urgent updates"
+              checked={formData.notifications.smsUrgentUpdates}
+              onChange={(value) => updateNotification("smsUrgentUpdates", value)}
+            />
           </div>
+        </section>
 
-          <div>
-            <label className="flex items-center gap-2">
-              <input
-    type="checkbox"
-    defaultChecked
-    className="rounded border-slate-300"
-  />
-              <span className="text-slate-700 text-sm">Accept applications through UAAMS</span>
-            </label>
-          </div>
-
-          <div>
-            <label className="flex items-center gap-2">
-              <input
-    type="checkbox"
-    defaultChecked
-    className="rounded border-slate-300"
-  />
-              <span className="text-slate-700 text-sm">Allow automatic form filling from student profiles</span>
-            </label>
-          </div>
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={isSaving}
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-white hover:bg-blue-700 disabled:opacity-70"
+          >
+            <Save className="h-4 w-4" />
+            {isSaving ? "Saving..." : "Save All Settings"}
+          </button>
         </div>
-      </div>
-
-      {
-    /* Notification Preferences */
-  }
-      <div className="bg-white rounded-lg border border-slate-200 p-6">
-        <h3 className="text-slate-900 mb-4">Notification Preferences</h3>
-        <div className="space-y-3">
-          <div>
-            <label className="flex items-center gap-2">
-              <input
-    type="checkbox"
-    defaultChecked
-    className="rounded border-slate-300"
-  />
-              <span className="text-slate-700 text-sm">Email notification for new applications</span>
-            </label>
-          </div>
-          <div>
-            <label className="flex items-center gap-2">
-              <input
-    type="checkbox"
-    defaultChecked
-    className="rounded border-slate-300"
-  />
-              <span className="text-slate-700 text-sm">Daily application summary</span>
-            </label>
-          </div>
-          <div>
-            <label className="flex items-center gap-2">
-              <input
-    type="checkbox"
-    className="rounded border-slate-300"
-  />
-              <span className="text-slate-700 text-sm">SMS notifications for urgent updates</span>
-            </label>
-          </div>
-        </div>
-      </div>
-
-      {
-    /* Contact Information */
-  }
-      <div className="bg-white rounded-lg border border-slate-200 p-6">
-        <h3 className="text-slate-900 mb-4">Admission Office Contact</h3>
-        <div className="space-y-4">
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-slate-700 mb-2 text-sm">Contact Person Name</label>
-              <input
-    type="text"
-    placeholder="e.g., Dr. Ahmad Khan"
-    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-  />
-            </div>
-            <div>
-              <label className="block text-slate-700 mb-2 text-sm">Designation</label>
-              <input
-    type="text"
-    placeholder="e.g., Director Admissions"
-    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-  />
-            </div>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-slate-700 mb-2 text-sm">Direct Email</label>
-              <input
-    type="email"
-    placeholder="contact@university.edu.pk"
-    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-  />
-            </div>
-            <div>
-              <label className="block text-slate-700 mb-2 text-sm">Direct Phone</label>
-              <input
-    type="tel"
-    placeholder="+92-XXX-XXXXXXX"
-    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-  />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {
-    /* Save Button */
-  }
-      <div className="flex justify-end">
-        <button className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-          <Save className="w-4 h-4" />
-          Save All Settings
-        </button>
-      </div>
-    </div>;
+      </form>
+    </div>
+  );
 }
-export {
-  UniversitySettings
-};
+
+function Field({
+  label,
+  value,
+  onChange,
+  type = "text",
+  placeholder = "",
+  required = false,
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-sm text-slate-700">{label}</label>
+      <input
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        required={required}
+        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+  );
+}
+
+function CheckboxField({ label, checked, onChange }) {
+  return (
+    <label className="flex items-center gap-2 text-sm text-slate-700">
+      <input
+        type="checkbox"
+        checked={Boolean(checked)}
+        onChange={(event) => onChange(event.target.checked)}
+        className="rounded border-slate-300"
+      />
+      {label}
+    </label>
+  );
+}
+
+export { UniversitySettings };

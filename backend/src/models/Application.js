@@ -1,0 +1,91 @@
+const mongoose = require("mongoose");
+
+const paymentSchema = new mongoose.Schema(
+  {
+    status: { type: String, enum: ["unpaid", "paid", "refunded"], default: "unpaid" },
+    amount: { type: Number, default: 0, min: 0 },
+    method: { type: String, enum: ["card", "bank", "wallet", "other"], default: "card" },
+    accountLast4: { type: String, default: "" },
+    transactionReference: { type: String, default: "" },
+    paidAt: { type: Date, default: null },
+  },
+  { _id: false }
+);
+
+const rollNumberSchema = new mongoose.Schema(
+  {
+    assigned: { type: Boolean, default: false },
+    number: { type: String, default: "" },
+    slipFileUrl: { type: String, default: "" },
+    slipFileName: { type: String, default: "" },
+    assignedAt: { type: Date, default: null },
+    assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+  },
+  { _id: false }
+);
+
+const admissionLetterSchema = new mongoose.Schema(
+  {
+    issued: { type: Boolean, default: false },
+    letterNumber: { type: String, default: "" },
+    fileUrl: { type: String, default: "" },
+    fileName: { type: String, default: "" },
+    remarks: { type: String, default: "" },
+    sentToStudent: { type: Boolean, default: false },
+    uploadedAt: { type: Date, default: null },
+    uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    sentAt: { type: Date, default: null },
+  },
+  { _id: false }
+);
+
+const applicationSchema = new mongoose.Schema(
+  {
+    applicationCode: { type: String, unique: true, index: true },
+    student: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
+    university: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
+    studentName: { type: String, required: true },
+    email: { type: String, required: true, lowercase: true, trim: true },
+    cnic: { type: String, default: "" },
+    program: { type: String, required: true, trim: true },
+    formData: { type: mongoose.Schema.Types.Mixed, default: {} },
+    aggregate: { type: Number, default: 0, min: 0, max: 100 },
+    matricMarks: { type: Number, default: 0, min: 0 },
+    interMarks: { type: Number, default: 0, min: 0 },
+    testScore: { type: Number, default: 0, min: 0 },
+    status: {
+      type: String,
+      enum: ["not-submitted", "pending", "under-review", "accepted", "rejected", "assigned"],
+      default: "not-submitted",
+      index: true,
+    },
+    payment: { type: paymentSchema, default: () => ({}) },
+    rollNumber: { type: rollNumberSchema, default: () => ({}) },
+    admissionLetter: { type: admissionLetterSchema, default: () => ({}) },
+    meritPosition: { type: Number, default: null },
+    meritListNumber: { type: Number, default: null },
+    appliedAt: { type: Date, default: Date.now },
+  },
+  { timestamps: true }
+);
+
+applicationSchema.pre("validate", function buildApplicationCode(next) {
+  if (!this.applicationCode) {
+    const suffix = `${Math.floor(10000 + Math.random() * 90000)}`;
+    const year = new Date().getFullYear();
+    this.applicationCode = `APP-${year}-${suffix}`;
+  }
+  next();
+});
+
+module.exports = mongoose.model("Application", applicationSchema);

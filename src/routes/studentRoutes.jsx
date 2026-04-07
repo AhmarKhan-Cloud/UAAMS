@@ -6,6 +6,8 @@ import { StudentBlog } from "../components/student/StudentBlog";
 import { UniversityRecommendations } from "../components/student/UniversityRecommendations";
 import { StudentOverviewPage } from "../pages/student/StudentOverviewPage";
 import { StudentProfilePage } from "../pages/student/StudentProfilePage";
+import { StudentApplicationFormPage } from "../pages/student/StudentApplicationFormPage";
+import { StudentApplicationPaymentPage } from "../pages/student/StudentApplicationPaymentPage";
 
 export const studentNavItems = [
   { to: "/student", label: "Overview", icon: Home, end: true },
@@ -21,6 +23,8 @@ export const studentRoutePages = [
   { index: true, element: <StudentOverviewPage /> },
   { path: "profile", element: <StudentProfilePage /> },
   { path: "recommendations", element: <UniversityRecommendations /> },
+  { path: "apply/:universityId", element: <StudentApplicationFormPage /> },
+  { path: "apply/:universityId/payment/:applicationId", element: <StudentApplicationPaymentPage /> },
   { path: "applications", element: <MyApplications /> },
   { path: "merit-lists", element: <MeritLists /> },
   { path: "announcements", element: <Announcements /> },
