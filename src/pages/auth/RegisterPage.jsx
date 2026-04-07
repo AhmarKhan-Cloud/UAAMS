@@ -33,6 +33,7 @@ export const RegisterPage = () => {
   });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isUniversity = useMemo(
     () => formData.role === "university",
@@ -44,20 +45,23 @@ export const RegisterPage = () => {
     setFormData((previous) => ({ ...previous, [field]: value }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     setMessage("");
     setError("");
+    setIsSubmitting(true);
 
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match.");
+      setIsSubmitting(false);
       return;
     }
 
-    const result = register(formData);
+    const result = await register(formData);
 
     if (!result.ok) {
       setError(result.message);
+      setIsSubmitting(false);
       return;
     }
 
@@ -66,6 +70,7 @@ export const RegisterPage = () => {
     setTimeout(() => {
       navigate(`/login?role=${formData.role}`);
     }, 1000);
+    setIsSubmitting(false);
   };
 
   return (
@@ -243,9 +248,10 @@ export const RegisterPage = () => {
 
           <button
             type="submit"
+            disabled={isSubmitting}
             className="w-full rounded-lg bg-emerald-600 px-4 py-2 text-white transition-colors hover:bg-emerald-700"
           >
-            Create Account
+            {isSubmitting ? "Creating Account..." : "Create Account"}
           </button>
         </form>
 

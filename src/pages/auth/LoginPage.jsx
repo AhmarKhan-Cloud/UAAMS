@@ -10,7 +10,7 @@ export const LoginPage = () => {
   const initialRole = searchParams.get("role");
   const location = useLocation();
   const navigate = useNavigate();
-  const { login, currentUser, demoCredentials } = useAuth();
+  const { login, currentUser } = useAuth();
 
   const [role, setRole] = useState(
     roleOptions.includes(initialRole) ? initialRole : "student",
@@ -18,6 +18,7 @@ export const LoginPage = () => {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fromLocation = useMemo(
     () => location.state?.from?.pathname,
@@ -30,19 +31,22 @@ export const LoginPage = () => {
     }
   }, [currentUser, navigate]);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
+    setIsSubmitting(true);
 
-    const result = login({ identifier, password, role });
+    const result = await login({ identifier, password, role });
 
     if (!result.ok) {
       setMessage(result.message);
+      setIsSubmitting(false);
       return;
     }
 
     setMessage("");
     const destination = fromLocation || resolveRolePath(result.user.role);
     navigate(destination, { replace: true });
+    setIsSubmitting(false);
   };
 
   return (
@@ -102,14 +106,15 @@ export const LoginPage = () => {
 
             <button
               type="submit"
+              disabled={isSubmitting}
               className="w-full rounded-lg bg-emerald-600 px-4 py-2 text-white transition-colors hover:bg-emerald-700"
             >
-              Login
+              {isSubmitting ? "Signing in..." : "Login"}
             </button>
           </form>
 
           <p className="mt-5 text-sm text-slate-600">
-            Don&apos;t have an account? {" "}
+            Don&apos;t have an account?{" "}
             <Link to="/register" className="text-emerald-700 hover:text-emerald-800">
               Create one
             </Link>
@@ -117,20 +122,18 @@ export const LoginPage = () => {
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-          <h2 className="text-xl text-slate-900">Demo credentials</h2>
+          <h2 className="text-xl text-slate-900">Role-Based Access</h2>
           <p className="mt-2 text-sm text-slate-600">
-            Use these credentials during FYP presentation.
+            Each role gets a dedicated dashboard with permissions for admissions workflow.
           </p>
 
           <div className="mt-4 space-y-3">
-            {demoCredentials.map((demo) => (
+            {roleOptions.map((item) => (
               <div
-                key={`${demo.role}-${demo.identifier}`}
+                key={item}
                 className="rounded-lg border border-slate-200 bg-slate-50 p-3"
               >
-                <div className="text-sm text-slate-900">{roleLabelMap[demo.role]}</div>
-                <div className="mt-1 text-xs text-slate-600">ID: {demo.identifier}</div>
-                <div className="text-xs text-slate-600">Password: {demo.password}</div>
+                <div className="text-sm text-slate-900">{roleLabelMap[item]}</div>
               </div>
             ))}
           </div>

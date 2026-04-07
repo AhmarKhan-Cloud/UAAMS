@@ -20,7 +20,7 @@ const roleCards = [
     title: "Blogger Portal",
     description: "Publish trusted admission content and improve campus visibility.",
     icon: PenSquare,
-    color: "bg-purple-50 text-purple-700",
+    color: "bg-orange-50 text-orange-700",
     to: "/register?role=blogger",
   },
   {

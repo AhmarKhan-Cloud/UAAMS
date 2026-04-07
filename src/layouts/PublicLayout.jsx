@@ -12,7 +12,7 @@ export const PublicLayout = () => {
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <Link to="/" className="flex items-center gap-2 text-emerald-900">
             <GraduationCap className="h-8 w-8 text-emerald-600" />
-            <span >UAAMS</span>
+            <span>UAAMS</span>
           </Link>
 
           <nav className="hidden items-center gap-1 md:flex">

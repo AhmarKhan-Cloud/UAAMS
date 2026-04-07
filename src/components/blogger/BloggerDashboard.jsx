@@ -1,124 +1,213 @@
-import { useState } from "react";
-import { Plus, Edit, Trash2, Eye, Calendar, Clock, Save, X } from "lucide-react";
-import { Card } from "../ui/card";
-import { Input } from "../ui/input";
-import { Textarea } from "../ui/textarea";
-import { Button } from "../ui/button";
-import { Badge } from "../ui/badge";
-import { Building2 } from "lucide-react"; 
-import { Label } from "../ui/label";
-function BloggerDashboard({ user }) {
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingPost, setEditingPost] = useState(null);
-  const [previewPost, setPreviewPost] = useState(null);
-  const bloggerUniversity = "NUST University";
-  const [blogPosts, setBlogPosts] = useState([
-    {
-      id: "1",
-      title: "Essential Tips for First-Year Engineering Students",
-      excerpt: "Starting your engineering journey? Here are crucial tips from experienced students to help you succeed in your first year at university.",
-      content: `Starting your engineering journey? Here are crucial tips from experienced students to help you succeed in your first year at university.
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Heart, MessageCircle, Plus, Reply } from "lucide-react";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { DashboardPageShell } from "../../pages/shared/DashboardPageShell";
+import { MetricGrid } from "../../pages/shared/MetricGrid";
+import { api } from "../../lib/apiClient";
+import { onDataUpdated } from "../../lib/socketClient";
 
-1. **Time Management is Key**
-Learn to balance your academic workload with extracurricular activities. Create a study schedule and stick to it.
+const initialFormState = {
+  title: "",
+  excerpt: "",
+  content: "",
+  category: "General",
+  tags: "",
+  imageUrl: "",
+  status: "draft",
+};
 
-2. **Build Strong Foundations**
-Focus on understanding fundamental concepts in mathematics and physics. These will be crucial throughout your degree.
+const defaultMetrics = {
+  totalPosts: 0,
+  publishedPosts: 0,
+  draftPosts: 0,
+  totalViews: 0,
+  totalPostLikes: 0,
+  totalComments: 0,
+  totalReplies: 0,
+};
 
-3. **Form Study Groups**
-Collaborate with your peers. Study groups can help you understand difficult concepts and prepare for exams.
+const normalizePost = (item) => ({
+  id: String(item?._id || item?.id || ""),
+  title: item?.title || "",
+  excerpt: item?.excerpt || "",
+  content: item?.content || "",
+  category: item?.category || "General",
+  tags: Array.isArray(item?.tags) ? item.tags : [],
+  imageUrl: item?.imageUrl || "",
+  status: item?.status || "draft",
+  views: Number(item?.views || 0),
+  likesCount: Number(item?.likesCount || 0),
+  commentsCount: Number(item?.commentsCount || 0),
+  repliesCount: Number(item?.repliesCount || 0),
+  publishedAt: item?.publishedAt || null,
+  createdAt: item?.createdAt || null,
+  updatedAt: item?.updatedAt || null,
+});
 
-4. **Utilize Campus Resources**
-Take advantage of tutoring services, labs, and office hours. Professors are there to help you succeed.
-
-5. **Stay Curious and Ask Questions**
-Don't be afraid to ask questions in class or during office hours. Curiosity is the foundation of engineering innovation.`,
-      category: "Campus Life",
-      tags: ["Engineering", "First Year", "Tips"],
-      imageUrl: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx1bml2ZXJzaXR5JTIwc3R1ZGVudHN8ZW58MXx8fHwxNzY2MDMzNDM1fDA&ixlib=rb-4.1.0&q=80&w=1080",
-      publishDate: "March 1, 2025",
-      readTime: "4 min",
-      status: "published",
-      views: 567,
-      universityName: bloggerUniversity,
-      bloggerName: user.name
-    }
-  ]);
-  const [formData, setFormData] = useState({
-    title: "",
-    excerpt: "",
-    content: "",
-    category: "Campus Life",
-    tags: "",
-    imageUrl: "",
-    status: "draft"
+const formatDate = (value) => {
+  if (!value) return "N/A";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
   });
-  const categories = ["Admissions", "Financial Aid", "Career Guidance", "Campus Life", "Events", "Research"];
-  const handleInputChange = (field, value) => {
-    setFormData({ ...formData, [field]: value });
+};
+
+const monthLabel = (value) =>
+  new Date(value).toLocaleString("en-US", { month: "short", year: "2-digit" });
+
+function BloggerDashboard() {
+  const [metrics, setMetrics] = useState(defaultMetrics);
+  const [managedUniversity, setManagedUniversity] = useState(null);
+
+  const [posts, setPosts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState("");
+  const [formData, setFormData] = useState(initialFormState);
+  const [formError, setFormError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const loadDashboard = useCallback(async () => {
+    const response = await api.get("/blogger/me/dashboard");
+    setMetrics(response?.data?.metrics || defaultMetrics);
+    setManagedUniversity(response?.data?.managedUniversity || null);
+  }, []);
+
+  const loadPosts = useCallback(async () => {
+    const response = await api.get("/blogger/me/posts?limit=200");
+    const items = response?.data?.posts || [];
+    setPosts(items.map(normalizePost));
+  }, []);
+
+  const loadData = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!silent) {
+        setIsLoading(true);
+      }
+      setError("");
+      try {
+        await Promise.all([loadDashboard(), loadPosts()]);
+      } catch (loadError) {
+        setError(loadError?.message || "Unable to load blogger dashboard.");
+      } finally {
+        if (!silent) {
+          setIsLoading(false);
+        }
+      }
+    },
+    [loadDashboard, loadPosts],
+  );
+
+  useEffect(() => {
+    loadData();
+    const unsubscribe = onDataUpdated((event) => {
+      if (event?.resource === "blogs" || event?.resource === "blog-interactions") {
+        loadData({ silent: true });
+      }
+    });
+    return () => unsubscribe();
+  }, [loadData]);
+
+  const dashboardMetrics = useMemo(
+    () => [
+      { label: "Total Posts", value: String(metrics.totalPosts || 0), trend: "All drafts and published posts" },
+      { label: "Published", value: String(metrics.publishedPosts || 0), trend: "Visible to students" },
+      { label: "Drafts", value: String(metrics.draftPosts || 0), trend: "Pending final publish" },
+      {
+        label: "Total Views",
+        value: Number(metrics.totalViews || 0).toLocaleString(),
+        trend: managedUniversity?.name ? `For ${managedUniversity.name}` : "Across your content",
+      },
+      {
+        label: "Post Likes",
+        value: Number(metrics.totalPostLikes || 0).toLocaleString(),
+        trend: "Student likes on your posts",
+      },
+      {
+        label: "Comments",
+        value: Number(metrics.totalComments || 0).toLocaleString(),
+        trend: "Top-level discussion threads",
+      },
+      {
+        label: "Replies",
+        value: Number(metrics.totalReplies || 0).toLocaleString(),
+        trend: "Replies inside discussions",
+      },
+    ],
+    [managedUniversity?.name, metrics],
+  );
+
+  const filteredPosts = useMemo(() => {
+    const search = searchTerm.trim().toLowerCase();
+
+    return posts.filter((item) => {
+      const matchesSearch =
+        !search ||
+        item.title.toLowerCase().includes(search) ||
+        item.excerpt.toLowerCase().includes(search) ||
+        item.content.toLowerCase().includes(search) ||
+        item.tags.some((tag) => String(tag).toLowerCase().includes(search));
+
+      const matchesStatus = statusFilter === "all" || item.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [posts, searchTerm, statusFilter]);
+
+  const statusChartData = useMemo(
+    () => [
+      { status: "Published", count: Number(metrics.publishedPosts || 0) },
+      { status: "Draft", count: Number(metrics.draftPosts || 0) },
+    ],
+    [metrics.draftPosts, metrics.publishedPosts],
+  );
+
+  const monthlyPosts = useMemo(() => {
+    const map = new Map();
+    posts.forEach((post) => {
+      const date = new Date(post.createdAt || Date.now());
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      const current = map.get(key) || { month: monthLabel(date), posts: 0 };
+      map.set(key, { ...current, posts: current.posts + 1 });
+    });
+    return Array.from(map.entries())
+      .sort(([a], [b]) => (a > b ? 1 : -1))
+      .map(([, item]) => item);
+  }, [posts]);
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingId("");
+    setFormData(initialFormState);
+    setFormError("");
   };
-  const calculateReadTime = (content) => {
-    const wordsPerMinute = 200;
-    const words = content.trim().split(/\s+/).length;
-    const minutes = Math.ceil(words / wordsPerMinute);
-    return `${minutes} min`;
+
+  const openCreateForm = () => {
+    setEditingId("");
+    setFormData(initialFormState);
+    setFormError("");
+    setShowForm(true);
   };
-  const handleSaveDraft = () => {
-    if (!formData.title || !formData.content) {
-      alert("Please fill in at least the title and content");
-      return;
-    }
-    const newPost = {
-      id: editingPost?.id || Date.now().toString(),
-      title: formData.title,
-      excerpt: formData.excerpt || formData.content.substring(0, 150) + "...",
-      content: formData.content,
-      category: formData.category,
-      tags: formData.tags.split(",").map((tag) => tag.trim()).filter((tag) => tag),
-      imageUrl: formData.imageUrl || "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxibG9nfGVufDF8fHx8MTc2NjAzMzQzNXww&ixlib=rb-4.1.0&q=80&w=1080",
-      publishDate: (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
-      readTime: calculateReadTime(formData.content),
-      status: "draft",
-      views: editingPost?.views || 0,
-      universityName: bloggerUniversity,
-      bloggerName: user.name
-    };
-    if (editingPost) {
-      setBlogPosts(blogPosts.map((post) => post.id === editingPost.id ? newPost : post));
-    } else {
-      setBlogPosts([newPost, ...blogPosts]);
-    }
-    resetForm();
-  };
-  const handlePublish = () => {
-    if (!formData.title || !formData.content || !formData.excerpt) {
-      alert("Please fill in title, excerpt, and content before publishing");
-      return;
-    }
-    const newPost = {
-      id: editingPost?.id || Date.now().toString(),
-      title: formData.title,
-      excerpt: formData.excerpt,
-      content: formData.content,
-      category: formData.category,
-      tags: formData.tags.split(",").map((tag) => tag.trim()).filter((tag) => tag),
-      imageUrl: formData.imageUrl || "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxibG9nfGVufDF8fHx8MTc2NjAzMzQzNXww&ixlib=rb-4.1.0&q=80&w=1080",
-      publishDate: (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
-      readTime: calculateReadTime(formData.content),
-      status: "published",
-      views: editingPost?.views || 0,
-      universityName: bloggerUniversity,
-      bloggerName: user.name
-    };
-    if (editingPost) {
-      setBlogPosts(blogPosts.map((post) => post.id === editingPost.id ? newPost : post));
-    } else {
-      setBlogPosts([newPost, ...blogPosts]);
-    }
-    resetForm();
-  };
-  const handleEdit = (post) => {
-    setEditingPost(post);
+
+  const openEditForm = (post) => {
+    setEditingId(post.id);
     setFormData({
       title: post.title,
       excerpt: post.excerpt,
@@ -126,485 +215,361 @@ Don't be afraid to ask questions in class or during office hours. Curiosity is t
       category: post.category,
       tags: post.tags.join(", "),
       imageUrl: post.imageUrl,
-      status: post.status
+      status: post.status,
     });
-    setShowCreateForm(true);
+    setFormError("");
+    setShowForm(true);
   };
-  const handleDelete = (postId) => {
-    if (confirm("Are you sure you want to delete this blog post?")) {
-      setBlogPosts(blogPosts.filter((post) => post.id !== postId));
+
+  const buildPayload = () => ({
+    title: formData.title,
+    excerpt: formData.excerpt,
+    content: formData.content,
+    category: formData.category,
+    tags: formData.tags
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean),
+    imageUrl: formData.imageUrl,
+    status: formData.status,
+  });
+
+  const handleSave = async (event) => {
+    event.preventDefault();
+    setFormError("");
+    setIsSaving(true);
+    try {
+      const payload = buildPayload();
+      if (editingId) {
+        await api.patch(`/blogger/me/posts/${editingId}`, payload);
+      } else {
+        await api.post("/blogger/me/posts", payload);
+      }
+      closeForm();
+      await loadData({ silent: true });
+    } catch (saveError) {
+      setFormError(saveError?.message || "Unable to save post.");
+    } finally {
+      setIsSaving(false);
     }
   };
-  const handleToggleStatus = (post) => {
-    const newStatus = post.status === "published" ? "draft" : "published";
-    setBlogPosts(blogPosts.map(
-      (p) => p.id === post.id ? { ...p, status: newStatus } : p
-    ));
+
+  const handleDelete = async (postId) => {
+    if (!window.confirm("Delete this post?")) return;
+    try {
+      await api.del(`/blogger/me/posts/${postId}`);
+      setPosts((previous) => previous.filter((item) => item.id !== postId));
+      await loadDashboard();
+    } catch (deleteError) {
+      setError(deleteError?.message || "Unable to delete post.");
+    }
   };
-  const resetForm = () => {
-    setFormData({
-      title: "",
-      excerpt: "",
-      content: "",
-      category: "Campus Life",
-      tags: "",
-      imageUrl: "",
-      status: "draft"
-    });
-    setShowCreateForm(false);
-    setEditingPost(null);
-  };
-  const handlePreview = () => {
-    const previewData = {
-      id: "preview",
-      title: formData.title || "Untitled Post",
-      excerpt: formData.excerpt || formData.content.substring(0, 150) + "...",
-      content: formData.content || "No content yet...",
-      category: formData.category,
-      tags: formData.tags.split(",").map((tag) => tag.trim()).filter((tag) => tag),
-      imageUrl: formData.imageUrl || "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxibG9nfGVufDF8fHx8MTc2NjAzMzQzNXww&ixlib=rb-4.1.0&q=80&w=1080",
-      publishDate: (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
-      readTime: calculateReadTime(formData.content),
-      status: "draft",
-      views: 0,
-      universityName: bloggerUniversity,
-      bloggerName: user.name
-    };
-    setPreviewPost(previewData);
-  };
-  if (previewPost) {
-    return <div className="min-h-screen bg-slate-50">
-        {
-      /* Header */
-    }
-     
 
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <Button onClick={() => setPreviewPost(null)} variant="outline">
-                <X className="w-4 h-4 mr-2" />
-                Close Preview
-              </Button>
-          <Card className="bg-white border border-slate-200 overflow-hidden">
-            <img
-      src={previewPost.imageUrl}
-      alt={previewPost.title}
-      className="w-full h-96 object-cover"
-    />
-            <div className="p-8">
-              <div className="flex flex-wrap gap-2 mb-4">
-                <Badge className="bg-emerald-100 text-emerald-700">
-                  {previewPost.category}
-                </Badge>
-                {previewPost.tags.map((tag) => <Badge key={tag} variant="outline" className="text-slate-600">
-                    {tag}
-                  </Badge>)}
-                <Badge className="bg-blue-100 text-blue-700">
-                  <Building2 className="w-3 h-3 mr-1" />
-                  {previewPost.universityName}
-                </Badge>
-              </div>
-
-              <h1 className="text-slate-900 mb-4">{previewPost.title}</h1>
-
-              <div className="flex items-center gap-4 mb-6 pb-6 border-b border-slate-200 text-sm text-slate-500">
-                <span className="flex items-center gap-1">
-                  <Calendar className="w-4 h-4" />
-                  {previewPost.publishDate}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Clock className="w-4 h-4" />
-                  {previewPost.readTime} read
-                </span>
-              </div>
-
-              <div className="prose max-w-none">
-                {previewPost.content.split("\n").map((paragraph, idx) => <p key={idx} className="text-slate-700 mb-4 whitespace-pre-line">
-                    {paragraph}
-                  </p>)}
-              </div>
-            </div>
-          </Card>
-        </div>
-      </div>;
-  }
-  if (showCreateForm) {
-    return <div className="min-h-screen bg-slate-50">
-        {
-      /* Header */
-    }
-        
-
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-slate-900 mb-2">
-                  {editingPost ? "Edit Blog Post" : "Create New Blog Post"}
-                </h1>
-                <p className="text-slate-600">
-                  Writing for {bloggerUniversity}
-                </p>
-              </div>
-              <Button onClick={resetForm} variant="outline">
-                <X className="w-4 h-4 mr-2" />
-                Cancel
-              </Button>
-            </div>
-
-            <Card className="bg-white border border-slate-200 p-6">
-              <div className="space-y-6">
-                {
-      /* Title */
-    }
-                <div>
-                  <Label htmlFor="title">Title *</Label>
-                  <Input
-      id="title"
-      placeholder="Enter blog post title"
-      value={formData.title}
-      onChange={(e) => handleInputChange("title", e.target.value)}
-      className="mt-2"
-    />
-                </div>
-
-                {
-      /* Excerpt */
-    }
-                <div>
-                  <Label htmlFor="excerpt">Excerpt *</Label>
-                  <Textarea
-      id="excerpt"
-      placeholder="Brief summary of the blog post (shown in listings)"
-      value={formData.excerpt}
-      onChange={(e) => handleInputChange("excerpt", e.target.value)}
-      className="mt-2 min-h-[80px]"
-    />
-                  <p className="text-xs text-slate-500 mt-1">
-                    {formData.excerpt.length} characters (recommended: 120-160)
-                  </p>
-                </div>
-
-                {
-      /* Content */
-    }
-                <div>
-                  <Label htmlFor="content">Content *</Label>
-                  <Textarea
-      id="content"
-      placeholder="Write your blog post content here. You can use **bold** for emphasis and format your text."
-      value={formData.content}
-      onChange={(e) => handleInputChange("content", e.target.value)}
-      className="mt-2 min-h-[300px]"
-    />
-                  <p className="text-xs text-slate-500 mt-1">
-                    {formData.content.split(/\s+/).filter((w) => w).length} words · {calculateReadTime(formData.content)} read time
-                  </p>
-                </div>
-
-                {
-      /* Category and Tags Row */
-    }
-                <div className="grid md:grid-cols-2 gap-6">
-                  {
-      /* Category */
-    }
-                  <div>
-                    <Label htmlFor="category">Category</Label>
-                    <select
-      id="category"
-      value={formData.category}
-      onChange={(e) => handleInputChange("category", e.target.value)}
-      className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+  return (
+    <DashboardPageShell
+      title="Blogger Dashboard"
+      subtitle={
+        managedUniversity?.name
+          ? `Writing for ${managedUniversity.name}`
+          : "Manage your university blog posts and audience growth."
+      }
+      actions={
+        <button
+          type="button"
+          onClick={openCreateForm}
+          className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+        >
+          <Plus className="h-4 w-4" />
+          Create Post
+        </button>
+      }
     >
-                      {categories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
-                    </select>
-                  </div>
+      {error ? (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+      ) : null}
 
-                  {
-      /* Tags */
-    }
-                  <div>
-                    <Label htmlFor="tags">Tags</Label>
-                    <Input
-      id="tags"
-      placeholder="engineering, admissions, tips (comma separated)"
-      value={formData.tags}
-      onChange={(e) => handleInputChange("tags", e.target.value)}
-      className="mt-2"
-    />
-                  </div>
-                </div>
-
-                {
-      /* Image URL */
-    }
-                <div>
-                  <Label htmlFor="imageUrl">Featured Image URL</Label>
-                  <div className="mt-2 space-y-2">
-                    <Input
-      id="imageUrl"
-      placeholder="https://example.com/image.jpg"
-      value={formData.imageUrl}
-      onChange={(e) => handleInputChange("imageUrl", e.target.value)}
-    />
-                    {formData.imageUrl && <div className="border border-slate-200 rounded-lg overflow-hidden">
-                        <img
-      src={formData.imageUrl}
-      alt="Preview"
-      className="w-full h-48 object-cover"
-      onError={(e) => {
-        e.target.src = "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxibG9nfGVufDF8fHx8MTc2NjAzMzQzNXww&ixlib=rb-4.1.0&q=80&w=1080";
-      }}
-    />
-                      </div>}
-                  </div>
-                </div>
-
-                {
-      /* Action Buttons */
-    }
-                <div className="flex gap-3 pt-4 border-t border-slate-200">
-                  <Button onClick={handlePreview} variant="outline" className="gap-2">
-                    <Eye className="w-4 h-4" />
-                    Preview
-                  </Button>
-                  <Button onClick={handleSaveDraft} variant="outline" className="gap-2">
-                    <Save className="w-4 h-4" />
-                    Save as Draft
-                  </Button>
-                  <Button onClick={handlePublish} className="gap-2">
-                    Publish
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          </div>
+      {isLoading ? (
+        <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-600">
+          Loading dashboard...
         </div>
-      </div>;
-  }
-  const publishedPosts = blogPosts.filter((post) => post.status === "published");
-  const draftPosts = blogPosts.filter((post) => post.status === "draft");
-  return <div className="min-h-screen bg-slate-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="space-y-6">
-          {
-    /* Header */
-  }
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-slate-900 mb-2">My Blog Posts</h1>
-              <p className="text-slate-600">
-                Manage your blog posts for {bloggerUniversity}
-              </p>
-            </div>
-            <Button onClick={() => setShowCreateForm(true)} className="gap-2">
-              <Plus className="w-4 h-4" />
-              Create Blog Post
-            </Button>
+      ) : (
+        <MetricGrid metrics={dashboardMetrics} />
+      )}
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <article className="uaams-chart-card rounded-xl p-5">
+          <h3 className="font-display mb-4 text-slate-900">Post Status Split</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={statusChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="status" />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Bar dataKey="count" fill="#f97316" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
+        </article>
 
-          {
-    /* Stats */
-  }
-          <div className="grid md:grid-cols-3 gap-6">
-            <Card className="bg-white border border-slate-200 p-6">
-              <div className="text-slate-600 text-sm mb-1">Published Posts</div>
-              <div className="text-slate-900 text-3xl">{publishedPosts.length}</div>
-            </Card>
-            <Card className="bg-white border border-slate-200 p-6">
-              <div className="text-slate-600 text-sm mb-1">Draft Posts</div>
-              <div className="text-slate-900 text-3xl">{draftPosts.length}</div>
-            </Card>
-            <Card className="bg-white border border-slate-200 p-6">
-              <div className="text-slate-600 text-sm mb-1">Total Views</div>
-              <div className="text-slate-900 text-3xl">
-                {blogPosts.reduce((sum, post) => sum + post.views, 0).toLocaleString()}
-              </div>
-            </Card>
+        <article className="uaams-chart-card rounded-xl p-5">
+          <h3 className="font-display mb-4 text-slate-900">Publishing Timeline</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={monthlyPosts}>
+                <defs>
+                  <linearGradient id="blogPostsArea" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#0ea5e9" stopOpacity={0.55} />
+                    <stop offset="100%" stopColor="#0ea5e9" stopOpacity={0.08} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="month" />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Area
+                  type="monotone"
+                  dataKey="posts"
+                  stroke="#0ea5e9"
+                  fill="url(#blogPostsArea)"
+                  strokeWidth={2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
-
-          {
-    /* Published Posts */
-  }
-          {publishedPosts.length > 0 && <div>
-              <h2 className="text-slate-900 mb-4">Published Posts</h2>
-              <div className="space-y-4">
-                {publishedPosts.map((post) => <Card key={post.id} className="bg-white border border-slate-200 p-6">
-                    <div className="flex gap-6">
-                      {post.imageUrl && <img
-    src={post.imageUrl}
-    alt={post.title}
-    className="w-48 h-32 object-cover rounded-lg shrink-0"
-  />}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-4 mb-3">
-                          <div className="flex-1">
-                            <h3 className="text-slate-900 mb-2">{post.title}</h3>
-                            <p className="text-slate-600 text-sm line-clamp-2 mb-3">
-                              {post.excerpt}
-                            </p>
-                            <div className="flex flex-wrap gap-2 mb-3">
-                              <Badge className="bg-emerald-100 text-emerald-700 text-xs">
-                                {post.category}
-                              </Badge>
-                              {post.tags.map((tag) => <Badge key={tag} variant="outline" className="text-xs">
-                                  {tag}
-                                </Badge>)}
-                              <Badge className="bg-blue-100 text-blue-700 text-xs">
-                                <Building2 className="w-3 h-3 mr-1" />
-                                {post.universityName}
-                              </Badge>
-                            </div>
-                          </div>
-                          <Badge className="bg-green-100 text-green-700 shrink-0">
-                            Published
-                          </Badge>
-                        </div>
-                        
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4 text-xs text-slate-500">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              {post.publishDate}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {post.readTime}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Eye className="w-3 h-3" />
-                              {post.views.toLocaleString()} views
-                            </span>
-                          </div>
-                          
-                          <div className="flex gap-2">
-                            <Button
-    size="sm"
-    variant="outline"
-    onClick={() => handleEdit(post)}
-  >
-                              <Edit className="w-4 h-4 mr-1" />
-                              Edit
-                            </Button>
-                            <Button
-    size="sm"
-    variant="outline"
-    onClick={() => handleToggleStatus(post)}
-  >
-                              Unpublish
-                            </Button>
-                            <Button
-    size="sm"
-    variant="outline"
-    onClick={() => handleDelete(post.id)}
-    className="text-red-600 hover:text-red-700"
-  >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </Card>)}
-              </div>
-            </div>}
-
-          {
-    /* Draft Posts */
-  }
-          {draftPosts.length > 0 && <div>
-              <h2 className="text-slate-900 mb-4">Drafts</h2>
-              <div className="space-y-4">
-                {draftPosts.map((post) => <Card key={post.id} className="bg-white border border-slate-200 p-6">
-                    <div className="flex gap-6">
-                      {post.imageUrl && <img
-    src={post.imageUrl}
-    alt={post.title}
-    className="w-48 h-32 object-cover rounded-lg shrink-0"
-  />}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-4 mb-3">
-                          <div className="flex-1">
-                            <h3 className="text-slate-900 mb-2">{post.title}</h3>
-                            <p className="text-slate-600 text-sm line-clamp-2 mb-3">
-                              {post.excerpt}
-                            </p>
-                            <div className="flex flex-wrap gap-2 mb-3">
-                              <Badge className="bg-slate-100 text-slate-700 text-xs">
-                                {post.category}
-                              </Badge>
-                              {post.tags.map((tag) => <Badge key={tag} variant="outline" className="text-xs">
-                                  {tag}
-                                </Badge>)}
-                              <Badge className="bg-blue-100 text-blue-700 text-xs">
-                                <Building2 className="w-3 h-3 mr-1" />
-                                {post.universityName}
-                              </Badge>
-                            </div>
-                          </div>
-                          <Badge variant="outline" className="shrink-0">
-                            Draft
-                          </Badge>
-                        </div>
-                        
-                        <div className="flex items-center justify-between">
-                          <div className="text-xs text-slate-500">
-                            Last updated: {post.publishDate}
-                          </div>
-                          
-                          <div className="flex gap-2">
-                            <Button
-    size="sm"
-    variant="outline"
-    onClick={() => handleEdit(post)}
-  >
-                              <Edit className="w-4 h-4 mr-1" />
-                              Edit
-                            </Button>
-                            <Button
-    size="sm"
-    variant="outline"
-    onClick={() => handleToggleStatus(post)}
-    className="text-green-600 hover:text-green-700"
-  >
-                              Publish
-                            </Button>
-                            <Button
-    size="sm"
-    variant="outline"
-    onClick={() => handleDelete(post.id)}
-    className="text-red-600 hover:text-red-700"
-  >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </Card>)}
-              </div>
-            </div>}
-
-          {
-    /* Empty State */
-  }
-          {blogPosts.length === 0 && <Card className="bg-white border border-slate-200 p-12 text-center">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Plus className="w-8 h-8 text-blue-600" />
-              </div>
-              <h3 className="text-slate-900 mb-2">No blog posts yet</h3>
-              <p className="text-slate-600 mb-6">
-                Create your first blog post to share insights with students
-              </p>
-              <Button onClick={() => setShowCreateForm(true)} className="gap-2">
-                <Plus className="w-4 h-4" />
-                Create Blog Post
-              </Button>
-            </Card>}
-        </div>
+        </article>
       </div>
-    </div>;
+
+      <div className="grid gap-6 xl:grid-cols-1">
+        <article className="rounded-lg border border-slate-200 bg-white p-5">
+          <h3 className="font-display mb-3 text-slate-900">My Posts</h3>
+          <div className="grid md:grid-cols-2 gap-3">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search title, excerpt, tags"
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Status</option>
+              <option value="published">Published</option>
+              <option value="draft">Draft</option>
+            </select>
+          </div>
+        </article>
+      </div>
+
+      {!isLoading && filteredPosts.length === 0 ? (
+        <div className="rounded-lg border border-slate-200 bg-white p-8 text-center text-sm text-slate-600">
+          No posts found.
+        </div>
+      ) : null}
+
+      {!isLoading && filteredPosts.length > 0 ? (
+        <div className="space-y-4">
+          {filteredPosts.map((post) => (
+            <article key={post.id} className="rounded-lg border border-slate-200 bg-white p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700">
+                      {post.category}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-1 text-xs ${
+                        post.status === "published"
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-amber-100 text-amber-700"
+                      }`}
+                    >
+                      {post.status}
+                    </span>
+                    <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700">
+                      {post.views} views
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700">
+                      <Heart className="h-3 w-3" />
+                      {post.likesCount}
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700">
+                      <MessageCircle className="h-3 w-3" />
+                      {post.commentsCount}
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700">
+                      <Reply className="h-3 w-3" />
+                      {post.repliesCount}
+                    </span>
+                  </div>
+                  <h3 className="text-slate-900 mb-2">{post.title}</h3>
+                  <p className="text-sm text-slate-600 mb-2">{post.excerpt}</p>
+                  <p className="text-xs text-slate-500 mb-2">
+                    Updated: {formatDate(post.updatedAt || post.createdAt)}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {post.tags.map((tag) => (
+                      <span
+                        key={`${post.id}-${tag}`}
+                        className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openEditForm(post)}
+                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(post.id)}
+                    className="rounded-lg border border-red-300 px-3 py-1.5 text-xs text-red-700 hover:bg-red-50"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : null}
+
+      {showForm ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-3xl rounded-xl bg-white p-6">
+            <h3 className="mb-4 text-slate-900">{editingId ? "Edit Post" : "Create Post"}</h3>
+
+            <form onSubmit={handleSave} className="space-y-4">
+              <div>
+                <label className="mb-1 block text-sm text-slate-700">Title</label>
+                <input
+                  type="text"
+                  value={formData.title}
+                  onChange={(event) =>
+                    setFormData((previous) => ({ ...previous, title: event.target.value }))
+                  }
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm text-slate-700">Excerpt</label>
+                <textarea
+                  value={formData.excerpt}
+                  onChange={(event) =>
+                    setFormData((previous) => ({ ...previous, excerpt: event.target.value }))
+                  }
+                  rows={3}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm text-slate-700">Content</label>
+                <textarea
+                  value={formData.content}
+                  onChange={(event) =>
+                    setFormData((previous) => ({ ...previous, content: event.target.value }))
+                  }
+                  rows={8}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-sm text-slate-700">Category</label>
+                  <input
+                    type="text"
+                    value={formData.category}
+                    onChange={(event) =>
+                      setFormData((previous) => ({ ...previous, category: event.target.value }))
+                    }
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm text-slate-700">Tags (comma separated)</label>
+                  <input
+                    type="text"
+                    value={formData.tags}
+                    onChange={(event) =>
+                      setFormData((previous) => ({ ...previous, tags: event.target.value }))
+                    }
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-sm text-slate-700">Image URL</label>
+                  <input
+                    type="text"
+                    value={formData.imageUrl}
+                    onChange={(event) =>
+                      setFormData((previous) => ({ ...previous, imageUrl: event.target.value }))
+                    }
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm text-slate-700">Status</label>
+                  <select
+                    value={formData.status}
+                    onChange={(event) =>
+                      setFormData((previous) => ({ ...previous, status: event.target.value }))
+                    }
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="published">Published</option>
+                  </select>
+                </div>
+              </div>
+
+              {formError ? (
+                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {formError}
+                </p>
+              ) : null}
+
+              <div className="flex justify-end gap-3 border-t border-slate-200 pt-4">
+                <button
+                  type="button"
+                  onClick={closeForm}
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-70"
+                >
+                  {isSaving ? "Saving..." : "Save Post"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+    </DashboardPageShell>
+  );
 }
-export {
-  BloggerDashboard
-};
+
+export { BloggerDashboard };

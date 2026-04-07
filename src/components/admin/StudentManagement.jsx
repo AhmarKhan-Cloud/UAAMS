@@ -1,299 +1,258 @@
-import { useState } from "react";
-import { Eye, GraduationCap, Mail, Phone, MapPin, BookOpen, Award } from "lucide-react";
-import { Card } from "../ui/card";
-import { Button } from "../ui/button";
-import { Badge } from "../ui/badge";
-import { Input } from "../ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/dialog";
+import { useEffect, useMemo, useState } from "react";
+import { api } from "../../lib/apiClient";
+
+const normalizeStudent = (item) => ({
+  id: String(item?._id || item?.id || ""),
+  name: item?.name || "",
+  email: item?.email || "",
+  phone: item?.phone || item?.profile?.phone || "",
+  city: item?.location || item?.profile?.city || "",
+  status: item?.status || "active",
+  createdAt: item?.createdAt || null,
+  profile: item?.profile || null,
+  applicationStats: item?.applicationStats || {
+    total: 0,
+    pending: 0,
+    underReview: 0,
+    accepted: 0,
+    rejected: 0,
+    assigned: 0,
+  },
+});
+
+const formatDate = (value) => {
+  if (!value) return "N/A";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+};
+
 function StudentManagement() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [viewingStudent, setViewingStudent] = useState(null);
-  const [students] = useState([
-    {
-      id: "1",
-      name: "Muhammad Ali",
-      email: "ali@example.com",
-      phone: "+92-300-1234567",
-      city: "Islamabad",
-      registrationDate: "February 15, 2026",
-      matricMarks: "1050/1100",
-      fscMarks: "980/1100",
-      applicationsCount: 5,
-      status: "active"
-    },
-    {
-      id: "2",
-      name: "Ayesha Khan",
-      email: "ayesha.khan@example.com",
-      phone: "+92-321-9876543",
-      city: "Lahore",
-      registrationDate: "February 20, 2026",
-      matricMarks: "1080/1100",
-      fscMarks: "1020/1100",
-      applicationsCount: 8,
-      status: "active"
-    },
-    {
-      id: "3",
-      name: "Hassan Ahmed",
-      email: "hassan@example.com",
-      phone: "+92-333-4567890",
-      city: "Karachi",
-      registrationDate: "March 1, 2026",
-      matricMarks: "950/1100",
-      fscMarks: "890/1100",
-      applicationsCount: 3,
-      status: "active"
-    },
-    {
-      id: "4",
-      name: "Fatima Malik",
-      email: "fatima.malik@example.com",
-      phone: "+92-345-1122334",
-      city: "Rawalpindi",
-      registrationDate: "February 28, 2026",
-      matricMarks: "1020/1100",
-      fscMarks: "950/1100",
-      applicationsCount: 6,
-      status: "active"
-    },
-    {
-      id: "5",
-      name: "Usman Tariq",
-      email: "usman@example.com",
-      phone: "+92-300-9988776",
-      city: "Faisalabad",
-      registrationDate: "February 10, 2026",
-      matricMarks: "990/1100",
-      fscMarks: "920/1100",
-      applicationsCount: 4,
-      status: "active"
+  const [students, setStudents] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [activeId, setActiveId] = useState("");
+
+  const loadStudents = async () => {
+    setIsLoading(true);
+    setError("");
+    try {
+      const params = new URLSearchParams();
+      params.set("limit", "200");
+      if (searchTerm.trim()) params.set("search", searchTerm.trim());
+
+      const response = await api.get(`/admin/students/management?${params.toString()}`);
+      const items = response?.data?.items || [];
+      setStudents(items.map(normalizeStudent));
+    } catch (loadError) {
+      setError(loadError?.message || "Unable to load students.");
+    } finally {
+      setIsLoading(false);
     }
-  ]);
-  const filteredStudents = students.filter(
-    (student) => student.name.toLowerCase().includes(searchQuery.toLowerCase()) || student.email.toLowerCase().includes(searchQuery.toLowerCase()) || student.city.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  const calculatePercentage = (marks) => {
-    const [obtained, total] = marks.split("/").map(Number);
-    return (obtained / total * 100).toFixed(1);
   };
-  return <div className="space-y-6">
-      {
-    /* Header */
-  }
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      loadStudents();
+    }, 250);
+
+    return () => clearTimeout(timeout);
+  }, [searchTerm]);
+
+  const filteredStudents = useMemo(() => {
+    if (statusFilter === "all") return students;
+    return students.filter((item) => item.status === statusFilter);
+  }, [students, statusFilter]);
+
+  const stats = useMemo(
+    () => ({
+      total: students.length,
+      active: students.filter((item) => item.status === "active").length,
+      inactive: students.filter((item) => item.status === "inactive").length,
+      applications: students.reduce(
+        (sum, item) => sum + Number(item.applicationStats?.total || 0),
+        0
+      ),
+    }),
+    [students]
+  );
+
+  const handleToggleStatus = async (student) => {
+    const nextStatus = student.status === "active" ? "inactive" : "active";
+    setActiveId(student.id);
+    setError("");
+    try {
+      await api.patch(`/admin/users/${student.id}/status`, { status: nextStatus });
+      setStudents((previous) =>
+        previous.map((item) =>
+          item.id === student.id ? { ...item, status: nextStatus } : item
+        )
+      );
+    } catch (statusError) {
+      setError(statusError?.message || "Unable to update student status.");
+    } finally {
+      setActiveId("");
+    }
+  };
+
+  const handleDeleteStudent = async (student) => {
+    const confirmed = window.confirm(
+      `Delete student "${student.name}"?\nThis will remove the account and related records.`,
+    );
+    if (!confirmed) return;
+
+    setActiveId(`${student.id}-delete`);
+    setError("");
+    try {
+      await api.del(`/admin/users/${student.id}`);
+      setStudents((previous) => previous.filter((item) => item.id !== student.id));
+    } catch (deleteError) {
+      setError(deleteError?.message || "Unable to delete student.");
+    } finally {
+      setActiveId("");
+    }
+  };
+
+  return (
+    <div className="space-y-6">
       <div>
         <h1 className="text-slate-900 mb-2">Student Management</h1>
-        <p className="text-slate-600">
-          View and manage all registered students in the system
+        <p className="text-slate-600">Monitor student profiles and account status.</p>
+      </div>
+
+      <div className="grid md:grid-cols-4 gap-4">
+        <StatCard label="Total Students" value={stats.total} />
+        <StatCard label="Active" value={stats.active} />
+        <StatCard label="Inactive" value={stats.inactive} />
+        <StatCard label="Applications" value={stats.applications} />
+      </div>
+
+      <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="grid md:grid-cols-2 gap-3">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Search by name, email, city"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+      </div>
+
+      {error ? (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
         </p>
-      </div>
+      ) : null}
 
-      {
-    /* Stats */
-  }
-      <div className="grid md:grid-cols-4 gap-6">
-        <Card className="bg-white border border-slate-200 p-6">
-          <div className="text-slate-600 text-sm mb-1">Total Students</div>
-          <div className="text-slate-900 text-3xl">{students.length.toLocaleString()}</div>
-        </Card>
-        <Card className="bg-green-50 border-green-200 p-6">
-          <div className="text-green-700 text-sm mb-1">Active Students</div>
-          <div className="text-green-900 text-3xl">
-            {students.filter((s) => s.status === "active").length.toLocaleString()}
-          </div>
-        </Card>
-        <Card className="bg-blue-50 border-blue-200 p-6">
-          <div className="text-blue-700 text-sm mb-1">Total Applications</div>
-          <div className="text-blue-900 text-3xl">
-            {students.reduce((sum, s) => sum + s.applicationsCount, 0).toLocaleString()}
-          </div>
-        </Card>
-        <Card className="bg-purple-50 border-purple-200 p-6">
-          <div className="text-purple-700 text-sm mb-1">New This Month</div>
-          <div className="text-purple-900 text-3xl">145</div>
-        </Card>
-      </div>
+      {isLoading ? (
+        <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-600">
+          Loading students...
+        </div>
+      ) : null}
 
-      {
-    /* Search */
-  }
-      <Card className="bg-white border border-slate-200 p-6">
-        <Input
-    placeholder="Search by name, email, or city..."
-    value={searchQuery}
-    onChange={(e) => setSearchQuery(e.target.value)}
-  />
-      </Card>
+      {!isLoading && filteredStudents.length === 0 ? (
+        <div className="rounded-lg border border-slate-200 bg-white p-8 text-center text-sm text-slate-600">
+          No students found.
+        </div>
+      ) : null}
 
-      {
-    /* Students List */
-  }
-      <div className="space-y-4">
-        {filteredStudents.map((student) => <Card key={student.id} className="bg-white border border-slate-200 p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-green-600 rounded-full flex items-center justify-center text-white font-bold">
-                    {student.name.split(" ").map((n) => n[0]).join("").substring(0, 2)}
-                  </div>
-                  <div>
-                    <h3 className="text-slate-900 mb-1">{student.name}</h3>
-                    <div className="flex items-center gap-2">
-                      <Badge className="bg-green-100 text-green-700">
-                        Active
-                      </Badge>
-                      <span className="text-slate-500 text-sm">
-                        Registered: {student.registrationDate}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid md:grid-cols-3 gap-3 mb-4">
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <Mail className="w-4 h-4" />
-                    <span>{student.email}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <Phone className="w-4 h-4" />
-                    <span>{student.phone}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <MapPin className="w-4 h-4" />
-                    <span>{student.city}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-4 mb-3">
-                  <div className="text-sm">
-                    <span className="text-slate-500">Matric: </span>
-                    <span className="text-slate-900 font-medium">
-                      {student.matricMarks} ({calculatePercentage(student.matricMarks)}%)
-                    </span>
-                  </div>
-                  <div className="text-sm">
-                    <span className="text-slate-500">FSc: </span>
-                    <span className="text-slate-900 font-medium">
-                      {student.fscMarks} ({calculatePercentage(student.fscMarks)}%)
-                    </span>
-                  </div>
-                  <div className="text-sm">
-                    <span className="text-slate-500">Applications: </span>
-                    <span className="text-slate-900 font-medium">{student.applicationsCount}</span>
-                  </div>
-                </div>
-
-                <Button
-    size="sm"
-    variant="outline"
-    onClick={() => setViewingStudent(student)}
-    className="gap-2"
-  >
-                  <Eye className="w-4 h-4" />
-                  View Full Profile
-                </Button>
-              </div>
-            </div>
-          </Card>)}
-      </div>
-
-      {
-    /* Empty State */
-  }
-      {filteredStudents.length === 0 && <Card className="bg-white border border-slate-200 p-12 text-center">
-          <GraduationCap className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-          <h3 className="text-slate-900 mb-2">No students found</h3>
-          <p className="text-slate-600">
-            Try adjusting your search query
-          </p>
-        </Card>}
-
-      {
-    /* View Student Details Modal */
-  }
-      <Dialog open={!!viewingStudent} onOpenChange={(open) => !open && setViewingStudent(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Student Profile</DialogTitle>
-            <DialogDescription>
-              View detailed information about the student.
-            </DialogDescription>
-          </DialogHeader>
-
-          {viewingStudent && <div className="space-y-6 mt-4">
-              <div className="flex items-center gap-4 pb-4 border-b border-slate-200">
-                <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-2xl">
-                  {viewingStudent.name.split(" ").map((n) => n[0]).join("").substring(0, 2)}
-                </div>
+      {!isLoading && filteredStudents.length > 0 ? (
+        <div className="space-y-4">
+          {filteredStudents.map((student) => (
+            <article key={student.id} className="rounded-lg border border-slate-200 bg-white p-5">
+              <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h3 className="text-slate-900 text-xl mb-1">{viewingStudent.name}</h3>
-                  <Badge className="bg-green-100 text-green-700">Active Student</Badge>
+                  <h3 className="text-slate-900">{student.name}</h3>
+                  <p className="text-sm text-slate-600">{student.email}</p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Phone: {student.phone || "N/A"} | City: {student.city || "N/A"}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Registered: {formatDate(student.createdAt)} | Applications:{" "}
+                    {student.applicationStats?.total || 0}
+                  </p>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Badge label="Pending" value={student.applicationStats?.pending || 0} />
+                    <Badge
+                      label="Under Review"
+                      value={student.applicationStats?.underReview || 0}
+                    />
+                    <Badge label="Accepted" value={student.applicationStats?.accepted || 0} />
+                    <Badge label="Rejected" value={student.applicationStats?.rejected || 0} />
+                    <Badge label="Assigned" value={student.applicationStats?.assigned || 0} />
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-end gap-2">
+                  <span
+                    className={`rounded-full px-2 py-1 text-xs ${
+                      student.status === "active"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-slate-100 text-slate-700"
+                    }`}
+                  >
+                    {student.status}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => handleToggleStatus(student)}
+                    disabled={Boolean(activeId)}
+                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-70"
+                  >
+                    {student.status === "active" ? "Deactivate" : "Activate"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteStudent(student)}
+                    disabled={Boolean(activeId)}
+                    className="rounded-lg border border-red-300 px-3 py-1.5 text-xs text-red-700 hover:bg-red-50 disabled:opacity-70"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
-
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <div className="text-xs text-slate-500 mb-1">Email Address</div>
-                  <div className="text-slate-900">{viewingStudent.email}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-slate-500 mb-1">Phone Number</div>
-                  <div className="text-slate-900">{viewingStudent.phone}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-slate-500 mb-1">City</div>
-                  <div className="text-slate-900">{viewingStudent.city}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-slate-500 mb-1">Registration Date</div>
-                  <div className="text-slate-900">{viewingStudent.registrationDate}</div>
-                </div>
-              </div>
-
-              <div className="border-t border-slate-200 pt-4">
-                <h4 className="text-slate-900 mb-3">Academic Information</h4>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <Card className="bg-blue-50 border-blue-200 p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <BookOpen className="w-4 h-4 text-blue-600" />
-                      <div className="text-xs text-blue-700">Matriculation</div>
-                    </div>
-                    <div className="text-blue-900 font-semibold">{viewingStudent.matricMarks}</div>
-                    <div className="text-sm text-blue-700">{calculatePercentage(viewingStudent.matricMarks)}%</div>
-                  </Card>
-                  <Card className="bg-purple-50 border-purple-200 p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Award className="w-4 h-4 text-purple-600" />
-                      <div className="text-xs text-purple-700">Intermediate (FSc)</div>
-                    </div>
-                    <div className="text-purple-900 font-semibold">{viewingStudent.fscMarks}</div>
-                    <div className="text-sm text-purple-700">{calculatePercentage(viewingStudent.fscMarks)}%</div>
-                  </Card>
-                </div>
-              </div>
-
-              <div className="border-t border-slate-200 pt-4">
-                <h4 className="text-slate-900 mb-3">Application Statistics</h4>
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div>
-                    <div className="text-xs text-slate-500 mb-1">Total Applications</div>
-                    <div className="text-slate-900 text-2xl font-bold">{viewingStudent.applicationsCount}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-500 mb-1">Pending</div>
-                    <div className="text-slate-900 text-2xl font-bold">2</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-500 mb-1">Accepted</div>
-                    <div className="text-slate-900 text-2xl font-bold">1</div>
-                  </div>
-                </div>
-              </div>
-            </div>}
-        </DialogContent>
-      </Dialog>
-    </div>;
+            </article>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
 }
-export {
-  StudentManagement
-};
+
+function StatCard({ label, value }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-4">
+      <div className="text-sm text-slate-600">{label}</div>
+      <div className="text-2xl text-slate-900">{value}</div>
+    </div>
+  );
+}
+
+function Badge({ label, value }) {
+  return (
+    <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700">
+      {label}: {value}
+    </span>
+  );
+}
+
+export { StudentManagement };

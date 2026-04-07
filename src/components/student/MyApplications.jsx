@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   FileText,
   Clock,
@@ -7,159 +8,168 @@ import {
   AlertCircle,
   Download,
 } from "lucide-react";
+import { api } from "../../lib/apiClient";
+import { downloadPdfDocument, downloadPdfFromUrl } from "../../lib/pdfDownload";
+import { onDataUpdated } from "../../lib/socketClient";
 
-const mockApplications = [
-  {
-    id: "1",
-    university: "NUST",
-    program: "Computer Science",
-    appliedDate: "May 15, 2025",
-    status: "under-review",
-    lastUpdate: "May 20, 2025",
-    applicationId: "NUST-2025-12345",
-  },
-  {
-    id: "2",
-    university: "FAST",
-    program: "Software Engineering",
-    appliedDate: "May 10, 2025",
-    status: "accepted",
-    lastUpdate: "May 25, 2025",
-    applicationId: "FAST-2025-67890",
-  },
-  {
-    id: "3",
-    university: "LUMS",
-    program: "Computer Science",
-    appliedDate: "May 5, 2025",
-    status: "pending",
-    lastUpdate: "May 5, 2025",
-    applicationId: "LUMS-2025-54321",
-  },
-  {
-    id: "4",
-    university: "UET",
-    program: "Civil Engineering",
-    appliedDate: "May 15, 2025",
-    status: "assigned",
-    lastUpdate: "May 20, 2025",
-    applicationId: "UET-2025-12345",
-  },
-  {
-    id: "5",
-    university: "COMSAT",
-    program: "Electrical Engineering",
-    appliedDate: "May 15, 2025",
-    status: "not submitted",
-    lastUpdate: "May 20, 2025",
-    applicationId: "COMSAT-2025-12345",
-  },
+const statusOptions = [
+  { key: "all", label: "All" },
+  { key: "not-submitted", label: "Not Submitted" },
+  { key: "pending", label: "Pending" },
+  { key: "under-review", label: "Under Review" },
+  { key: "accepted", label: "Accepted" },
+  { key: "rejected", label: "Rejected" },
+  { key: "assigned", label: "Assigned" },
 ];
+
+const formatDate = (value) => {
+  if (!value) return "N/A";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+};
+
+const normalizeApplication = (item) => ({
+  id: String(item?._id || item?.id || ""),
+  applicationCode: item?.applicationCode || "N/A",
+  universityId: String(item?.university?._id || item?.university?.id || item?.university || ""),
+  university: item?.university?.name || "University",
+  program: item?.program || "Program",
+  appliedDate: formatDate(item?.appliedAt || item?.createdAt),
+  lastUpdate: formatDate(item?.updatedAt || item?.createdAt),
+  status: item?.status || "not-submitted",
+  paymentStatus: item?.payment?.status || "unpaid",
+  rollNumberSlip: item?.rollNumber?.slipFileUrl || "",
+  rollNumberSlipName: item?.rollNumber?.slipFileName || "",
+  admissionLetter: item?.admissionLetter?.fileUrl || "",
+  admissionLetterName: item?.admissionLetter?.fileName || "",
+});
 
 export function MyApplications() {
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const [applications, setApplications] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const filteredApplications = mockApplications.filter((app) => {
-    if (selectedStatus === "all") return true;
-    return app.status === selectedStatus;
-  });
+  useEffect(() => {
+    let isMounted = true;
 
-  const statusCounts = {
-    all: mockApplications.length,
-    pending: mockApplications.filter((a) => a.status === "pending").length,
-    "under-review": mockApplications.filter((a) => a.status === "under-review")
-      .length,
-    accepted: mockApplications.filter((a) => a.status === "accepted").length,
-    rejected: mockApplications.filter((a) => a.status === "rejected").length,
-    assigned: mockApplications.filter((a) => a.status === "assigned").length,
-    "not submitted": mockApplications.filter((a) => a.status === "not submitted").length,
-  };
+    const loadApplications = async ({ silent = false } = {}) => {
+      if (!silent) {
+        setIsLoading(true);
+      }
+      setError("");
+      try {
+        const response = await api.get("/applications/me");
+        const items = response?.data?.applications || [];
+        if (!isMounted) return;
+        setApplications(items.map(normalizeApplication));
+      } catch (loadError) {
+        if (!isMounted) return;
+        setError(loadError?.message || "Unable to load applications right now.");
+      } finally {
+        if (isMounted && !silent) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadApplications();
+    const unsubscribe = onDataUpdated((event) => {
+      if (event?.resource === "applications" || event?.resource === "merit-lists") {
+        loadApplications({ silent: true });
+      }
+    });
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, []);
+
+  const filteredApplications = useMemo(
+    () =>
+      applications.filter((app) => {
+        if (selectedStatus === "all") return true;
+        return app.status === selectedStatus;
+      }),
+    [applications, selectedStatus],
+  );
+
+  const statusCounts = useMemo(() => {
+    const counts = {
+      all: applications.length,
+      "not-submitted": 0,
+      pending: 0,
+      "under-review": 0,
+      accepted: 0,
+      rejected: 0,
+      assigned: 0,
+    };
+
+    applications.forEach((application) => {
+      if (counts[application.status] !== undefined) {
+        counts[application.status] += 1;
+      }
+    });
+
+    return counts;
+  }, [applications]);
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-slate-900 mb-2">My Applications</h1>
-        <p className="text-slate-600">
-          Track the status of your university applications
-        </p>
+        <p className="text-slate-600">Track the status of your university applications</p>
       </div>
 
-      {/* Status Filter */}
       <div className="bg-white rounded-lg border border-slate-200 p-4">
         <div className="flex flex-wrap gap-2">
-          <FilterButton
-            label="All"
-            count={statusCounts.all}
-            active={selectedStatus === "all"}
-            onClick={() => setSelectedStatus("all")}
-          />
-          <FilterButton
-            label="not submitted"
-            count={statusCounts["not submitted"]}
-            active={selectedStatus === "not submitted"}
-            onClick={() => setSelectedStatus("not submitted")}
-          />
-          <FilterButton
-            label="Pending"
-            count={statusCounts.pending}
-            active={selectedStatus === "pending"}
-            onClick={() => setSelectedStatus("pending")}
-          />
-          <FilterButton
-            label="Under Review"
-            count={statusCounts["under-review"]}
-            active={selectedStatus === "under-review"}
-            onClick={() => setSelectedStatus("under-review")}
-          />
-          <FilterButton
-            label="Accepted"
-            count={statusCounts.accepted}
-            active={selectedStatus === "accepted"}
-            onClick={() => setSelectedStatus("accepted")}
-          />
-          <FilterButton
-            label="Rejected"
-            count={statusCounts.rejected}
-            active={selectedStatus === "rejected"}
-            onClick={() => setSelectedStatus("rejected")}
-          />
-          <FilterButton
-            label="Assigned"
-            count={statusCounts.assigned}
-            active={selectedStatus === "assigned"}
-            onClick={() => setSelectedStatus("assigned")}
-          />
+          {statusOptions.map((option) => (
+            <FilterButton
+              key={option.key}
+              label={option.label}
+              count={statusCounts[option.key] || 0}
+              active={selectedStatus === option.key}
+              onClick={() => setSelectedStatus(option.key)}
+            />
+          ))}
         </div>
       </div>
 
-      {/* Applications List */}
-      {filteredApplications.length === 0 ? (
+      {isLoading ? (
+        <div className="bg-white rounded-lg border border-slate-200 p-12 text-center text-slate-600 text-sm">
+          Loading your applications...
+        </div>
+      ) : null}
+
+      {!isLoading && error ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>
+      ) : null}
+
+      {!isLoading && !error && filteredApplications.length === 0 ? (
         <div className="bg-white rounded-lg border border-slate-200 p-12 text-center">
           <FileText className="w-12 h-12 text-slate-400 mx-auto mb-4" />
           <h3 className="text-slate-900 mb-2">No Applications Found</h3>
           <p className="text-slate-600 text-sm">
             {selectedStatus === "all"
-              ? "You haven't submitted any applications yet. Browse universities to get started."
-              : `No ${selectedStatus} applications found.`}
+              ? "You have not submitted any applications yet. Browse recommendations to get started."
+              : `No ${selectedStatus.replace("-", " ")} applications found.`}
           </p>
         </div>
-      ) : (
+      ) : null}
+
+      {!isLoading && !error && filteredApplications.length > 0 ? (
         <div className="space-y-4">
           {filteredApplications.map((application) => (
             <ApplicationCard key={application.id} application={application} />
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
 
-function FilterButton({
-  label,
-  count,
-  active,
-  onClick,
-}) {
+function FilterButton({ label, count, active, onClick }) {
   return (
     <button
       onClick={onClick}
@@ -175,6 +185,9 @@ function FilterButton({
 }
 
 function ApplicationCard({ application }) {
+  const navigate = useNavigate();
+  const [isDownloading, setIsDownloading] = useState(false);
+
   const getStatusIcon = () => {
     switch (application.status) {
       case "pending":
@@ -185,10 +198,10 @@ function ApplicationCard({ application }) {
         return <CheckCircle className="w-5 h-5 text-emerald-500" />;
       case "rejected":
         return <XCircle className="w-5 h-5 text-red-500" />;
-        case "assigned":
+      case "assigned":
         return <CheckCircle className="w-5 h-5 text-emerald-500" />;
-        case "not submitted":
-        return <XCircle className="w-5 h-5 text-red-500" />;
+      default:
+        return <Clock className="w-5 h-5 text-slate-500" />;
     }
   };
 
@@ -202,18 +215,68 @@ function ApplicationCard({ application }) {
         return "bg-emerald-50 text-emerald-700 border-emerald-200";
       case "rejected":
         return "bg-red-50 text-red-700 border-red-200";
-        case "assigned":
+      case "assigned":
         return "bg-emerald-50 text-emerald-700 border-emerald-200";
-        case "not submitted":
-        return "bg-red-50 text-red-700 border-red-200";
+      default:
+        return "bg-slate-100 text-slate-700 border-slate-200";
     }
   };
 
-  const getStatusText = () => {
-    return application.status
-      .split("-")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
+  const statusText = application.status
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+
+  const progressWidth =
+    application.status === "not-submitted"
+      ? "20%"
+      : application.status === "pending"
+      ? "40%"
+      : application.status === "under-review"
+      ? "60%"
+      : application.status === "accepted" || application.status === "rejected"
+      ? "80%"
+      : application.status === "assigned"
+      ? "100%"
+      : "0%";
+  const isUnpaidDraft =
+    application.status === "not-submitted" &&
+    application.paymentStatus !== "paid" &&
+    Boolean(application.universityId);
+
+  const downloadApplicationPdf = () => {
+    downloadPdfDocument({
+      title: "UAAMS Application Summary",
+      fileName: `${application.applicationCode || "application"}-summary.pdf`,
+      lines: [
+        `Application Code: ${application.applicationCode}`,
+        `University: ${application.university}`,
+        `Program: ${application.program}`,
+        `Applied Date: ${application.appliedDate}`,
+        `Last Updated: ${application.lastUpdate}`,
+        `Status: ${statusText}`,
+        `Payment Status: ${application.paymentStatus}`,
+      ],
+    });
+  };
+
+  const downloadLinkedOrFallbackPdf = async ({ url, fileName, fallbackTitle, fallbackLines }) => {
+    setIsDownloading(true);
+    try {
+      if (url) {
+        await downloadPdfFromUrl(url, fileName);
+        return;
+      }
+      throw new Error("No URL available");
+    } catch {
+      downloadPdfDocument({
+        title: fallbackTitle,
+        fileName,
+        lines: fallbackLines,
+      });
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   return (
@@ -228,99 +291,117 @@ function ApplicationCard({ application }) {
             <p className="text-slate-600 mb-2">{application.program}</p>
             <div className="flex items-center gap-4 text-sm text-slate-500">
               <span>Applied: {application.appliedDate}</span>
-              <span>•</span>
-              <span>ID: {application.applicationId}</span>
+              <span>|</span>
+              <span>ID: {application.applicationCode}</span>
             </div>
           </div>
         </div>
-        <div
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${getStatusColor()}`}
-        >
+        <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${getStatusColor()}`}>
           {getStatusIcon()}
-          <span className="text-sm">{getStatusText()}</span>
+          <span className="text-sm">{statusText}</span>
         </div>
       </div>
 
-      {/* Timeline/Progress */}
       <div className="border-t border-slate-200 pt-4 mt-4">
         <div className="flex items-center justify-between mb-3">
           <span className="text-sm text-slate-600">Application Progress</span>
-          <span className="text-sm text-slate-500">
-            Last updated: {application.lastUpdate}
-          </span>
+          <span className="text-sm text-slate-500">Last updated: {application.lastUpdate}</span>
         </div>
 
         <div className="relative">
           <div className="flex justify-between items-center">
-            <TimelineStep label="Payment Pending" completed={true} />
-            <TimelineStep label="Submitted" completed={application.status !== "not submitted"} />
+            <TimelineStep label="Payment" completed={application.paymentStatus === "paid"} />
+            <TimelineStep label="Submitted" completed={application.status !== "not-submitted"} />
             <TimelineStep
               label="Under Review"
-              completed={application.status !== "pending" && application.status !== "not submitted"}
+              completed={["under-review", "accepted", "rejected", "assigned"].includes(application.status)}
             />
             <TimelineStep
               label="Decision"
-              completed={
-                application.status === "accepted" ||
-                application.status === "rejected" ||
-                application.status === "assigned"
-              }
+              completed={["accepted", "rejected", "assigned"].includes(application.status)}
             />
-            <TimelineStep
-              label="Finalized"
-              completed={application.status === "assigned"}
-            />
+            <TimelineStep label="Finalized" completed={application.status === "assigned"} />
           </div>
           <div className="absolute top-4 left-0 right-0 h-0.5 bg-slate-200 -z-10">
-            <div
-              className="h-full bg-emerald-500 transition-all"
-              style={{
-                width:
-                  application.status === "not submitted"
-                    ? "20%"
-                    : application.status === "pending"
-                    ? "40%"
-                    : application.status === "under-review"
-                    ? "60%"
-                    : application.status === "accepted" || application.status === "rejected"
-                    ? "80%"
-                    : application.status === "assigned"
-                    ? "100%"
-                    : "0%",
-              }}
-            />
+            <div className="h-full bg-emerald-500 transition-all" style={{ width: progressWidth }} />
           </div>
         </div>
       </div>
 
-      {/* Actions */}
       <div className="flex gap-3 mt-4 pt-4 border-t border-slate-200">
-        <button className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors flex items-center gap-2">
+        {isUnpaidDraft ? (
+          <button
+            type="button"
+            onClick={() =>
+              navigate(`/student/apply/${application.universityId}/payment/${application.id}`)
+            }
+            className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
+          >
+            Resume Unpaid Draft
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={downloadApplicationPdf}
+          className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors flex items-center gap-2"
+        >
           <Download className="w-4 h-4" />
           Download Application
         </button>
-        {application.status === "accepted" && (
-          <button className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors">
+        {["accepted", "assigned"].includes(application.status) && application.rollNumberSlip ? (
+          <button
+            type="button"
+            onClick={() =>
+              downloadLinkedOrFallbackPdf({
+                url: application.rollNumberSlip,
+                fileName:
+                  application.rollNumberSlipName ||
+                  `${application.applicationCode || "application"}-roll-number-slip.pdf`,
+                fallbackTitle: "Roll Number Slip",
+                fallbackLines: [
+                  `Application Code: ${application.applicationCode}`,
+                  `University: ${application.university}`,
+                  `Program: ${application.program}`,
+                  "Slip URL was unavailable. This summary is generated from current record.",
+                ],
+              })
+            }
+            disabled={isDownloading}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+          >
             Download Roll Number Slip
           </button>
-        )}
-        {application.status === "assigned" && (
-          <button className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors">
+        ) : null}
+        {application.admissionLetter ? (
+          <button
+            type="button"
+            onClick={() =>
+              downloadLinkedOrFallbackPdf({
+                url: application.admissionLetter,
+                fileName:
+                  application.admissionLetterName ||
+                  `${application.applicationCode || "application"}-admission-letter.pdf`,
+                fallbackTitle: "Admission Letter",
+                fallbackLines: [
+                  `Application Code: ${application.applicationCode}`,
+                  `University: ${application.university}`,
+                  `Program: ${application.program}`,
+                  "Admission letter URL was unavailable. This summary is generated from current record.",
+                ],
+              })
+            }
+            disabled={isDownloading}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+          >
             Download Admission Letter
           </button>
-        )}
-        <button className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
-          View Details
-        </button>
+        ) : null}
       </div>
     </div>
   );
 }
 
-function TimelineStep({
-  label,
-  completed,
-}) {
+function TimelineStep({ label, completed }) {
   return (
     <div className="flex flex-col items-center relative z-10">
       <div
@@ -330,15 +411,9 @@ function TimelineStep({
             : "bg-slate-200 text-slate-400"
         }`}
       >
-        {completed && <CheckCircle className="w-5 h-5" />}
+        {completed ? <CheckCircle className="w-5 h-5" /> : null}
       </div>
-      <span
-        className={`text-xs mt-2 ${
-          completed ? "text-slate-700" : "text-slate-500"
-        }`}
-      >
-        {label}
-      </span>
+      <span className={`text-xs mt-2 ${completed ? "text-slate-700" : "text-slate-500"}`}>{label}</span>
     </div>
   );
 }
