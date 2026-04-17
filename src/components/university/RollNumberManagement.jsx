@@ -8,6 +8,7 @@ const initialFormState = {
   number: "",
   slipFileUrl: "",
   slipFileName: "",
+  eligibleForAdmissionLetter: false,
 };
 
 const normalizeApplication = (item) => ({
@@ -18,6 +19,7 @@ const normalizeApplication = (item) => ({
   program: item?.program || "Program",
   aggregate: Number(item?.aggregate || 0),
   status: item?.status || "pending",
+  eligibleForAdmissionLetter: Boolean(item?.eligibleForAdmissionLetter),
   rollNumber: {
     assigned: Boolean(item?.rollNumber?.assigned),
     number: item?.rollNumber?.number || "",
@@ -114,6 +116,7 @@ function RollNumberManagement() {
       slipFileName:
         application.rollNumber.slipFileName ||
         getFileNameFromPath(application.rollNumber.slipFileUrl),
+      eligibleForAdmissionLetter: Boolean(application.eligibleForAdmissionLetter),
     });
     setFormError("");
     setShowForm(true);
@@ -247,6 +250,19 @@ function RollNumberManagement() {
                   <p className="text-xs text-slate-500 mt-1">
                     Roll Number: {application.rollNumber.number || "Not assigned"}
                   </p>
+                  <p className="text-xs mt-1">
+                    <span
+                      className={`rounded-full px-2 py-0.5 ${
+                        application.eligibleForAdmissionLetter
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-slate-100 text-slate-700"
+                      }`}
+                    >
+                      {application.eligibleForAdmissionLetter
+                        ? "Eligible for Admission Letter"
+                        : "Not Eligible for Admission Letter"}
+                    </span>
+                  </p>
                   {application.rollNumber.slipFileUrl ? (
                     <a
                       href={application.rollNumber.slipFileUrl}
@@ -325,6 +341,21 @@ function RollNumberManagement() {
                   <p className="mt-1 text-xs text-slate-500">Existing file attached.</p>
                 ) : null}
               </div>
+
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={Boolean(formData.eligibleForAdmissionLetter)}
+                  onChange={(event) =>
+                    setFormData((previous) => ({
+                      ...previous,
+                      eligibleForAdmissionLetter: event.target.checked,
+                    }))
+                  }
+                  className="rounded border-slate-300"
+                />
+                Eligible for admission letter
+              </label>
 
               {formError ? (
                 <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">

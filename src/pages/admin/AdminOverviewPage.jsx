@@ -17,6 +17,7 @@ import { onDataUpdated } from "../../lib/socketClient";
 
 export const AdminOverviewPage = () => {
   const [stats, setStats] = useState(null);
+  const [activeMetricLabel, setActiveMetricLabel] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -82,6 +83,12 @@ export const AdminOverviewPage = () => {
     ];
   }, [stats]);
 
+  useEffect(() => {
+    if (metrics.length > 0 && !metrics.some((item) => item.label === activeMetricLabel)) {
+      setActiveMetricLabel(metrics[0].label);
+    }
+  }, [metrics, activeMetricLabel]);
+
   const applicationChart = useMemo(
     () => [
       { name: "In Review", value: Number(stats?.applications?.inReview || 0) },
@@ -100,6 +107,36 @@ export const AdminOverviewPage = () => {
     [stats],
   );
 
+  const selectedMetricChartData = useMemo(() => {
+    switch (activeMetricLabel) {
+      case "Pending University Approvals":
+        return [
+          { state: "Pending", value: Number(stats?.universities?.pendingApprovals || 0) },
+          { state: "Approved", value: Number(stats?.universities?.approved || 0) },
+          { state: "Rejected", value: Number(stats?.universities?.rejected || 0) },
+        ];
+      case "Active Students":
+        return [
+          { state: "Students", value: Number(stats?.users?.students || 0) },
+          { state: "Bloggers", value: Number(stats?.users?.bloggers || 0) },
+          { state: "Universities", value: Number(stats?.universities?.total || 0) },
+        ];
+      case "Applications in Review":
+        return [
+          { state: "In Review", value: Number(stats?.applications?.inReview || 0) },
+          { state: "Accepted", value: Number(stats?.applications?.accepted || 0) },
+          { state: "Rejected", value: Number(stats?.applications?.rejected || 0) },
+        ];
+      case "Published Content":
+        return [
+          { state: "Blog Posts", value: Number(stats?.content?.blogPosts || 0) },
+          { state: "Announcements", value: Number(stats?.content?.announcements || 0) },
+        ];
+      default:
+        return [];
+    }
+  }, [activeMetricLabel, stats]);
+
   return (
     <DashboardPageShell
       title="System Administration"
@@ -114,8 +151,30 @@ export const AdminOverviewPage = () => {
           Loading admin metrics...
         </div>
       ) : (
-        <MetricGrid metrics={metrics} />
+        <MetricGrid
+          metrics={metrics}
+          activeMetricLabel={activeMetricLabel}
+          onMetricClick={(metric) => setActiveMetricLabel(metric.label)}
+        />
       )}
+
+      {!isLoading && selectedMetricChartData.length > 0 ? (
+        <article className="uaams-chart-card rounded-xl p-5">
+          <h3 className="font-display mb-2 text-slate-900">{activeMetricLabel} State Graph</h3>
+          <p className="mb-4 text-xs text-slate-500">Click a metric card to switch this graph.</p>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={selectedMetricChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="state" />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Bar dataKey="value" fill="#4f46e5" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </article>
+      ) : null}
 
       {!isLoading && stats ? (
         <>

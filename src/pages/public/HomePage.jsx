@@ -7,28 +7,28 @@ const roleCards = [
     description: "Discover universities, complete your profile, and track applications from one place.",
     icon: GraduationCap,
     color: "bg-emerald-50 text-emerald-700",
-    to: "/register?role=student",
+    to: "/login/student",
   },
   {
     title: "University Portal",
     description: "Manage form builder, applications, merit lists, and official announcements.",
     icon: Building2,
     color: "bg-blue-50 text-blue-700",
-    to: "/register?role=university",
+    to: "/login/university",
   },
   {
     title: "Blogger Portal",
     description: "Publish trusted admission content and improve campus visibility.",
     icon: PenSquare,
     color: "bg-orange-50 text-orange-700",
-    to: "/register?role=blogger",
+    to: "/login/blogger",
   },
   {
     title: "Admin Portal",
     description: "Approve institutions, monitor workflows, and secure platform operations.",
     icon: ShieldCheck,
     color: "bg-indigo-50 text-indigo-700",
-    to: "/login?role=admin",
+    to: "/login/admin",
   },
 ];
 
@@ -49,14 +49,14 @@ export const HomePage = () => {
 
         <div className="mt-8 flex flex-wrap gap-3 items-center">
           <Link
-            to="/register"
+            to="/register/student"
             className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-6 py-3 text-white transition-colors hover:bg-emerald-700"
           >
             <p>Start Registration</p>
             <ArrowRight className="h-4 w-5" />
           </Link>
           <Link
-            to="/login"
+            to="/login/student"
             className="rounded-lg border border-slate-300 bg-white px-6 py-3 text-slate-700 transition-colors hover:bg-slate-50"
           >
             <p>Sign In</p>

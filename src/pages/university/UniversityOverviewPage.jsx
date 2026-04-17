@@ -38,6 +38,7 @@ export const UniversityOverviewPage = () => {
   const [applications, setApplications] = useState([]);
   const [profile, setProfile] = useState(null);
   const [announcementsCount, setAnnouncementsCount] = useState(0);
+  const [activeMetricLabel, setActiveMetricLabel] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -83,7 +84,7 @@ export const UniversityOverviewPage = () => {
     const pending = applications.filter((item) => item.status === "pending").length;
     const underReview = applications.filter((item) => item.status === "under-review").length;
     const accepted = applications.filter((item) =>
-      ["accepted", "assigned"].includes(item.status),
+      ["accepted", "assigned", "finalized"].includes(item.status),
     ).length;
     const activePrograms = Array.isArray(profile?.programs)
       ? profile.programs.length
@@ -113,6 +114,12 @@ export const UniversityOverviewPage = () => {
     ];
   }, [announcementsCount, applications, profile?.applicationFee, profile?.programs, profile?.totalPrograms]);
 
+  useEffect(() => {
+    if (metrics.length > 0 && !metrics.some((item) => item.label === activeMetricLabel)) {
+      setActiveMetricLabel(metrics[0].label);
+    }
+  }, [metrics, activeMetricLabel]);
+
   const recentApplications = useMemo(
     () =>
       applications
@@ -135,14 +142,50 @@ export const UniversityOverviewPage = () => {
   }, [applications]);
 
   const statusChartData = useMemo(() => {
-    const statuses = ["pending", "under-review", "accepted", "rejected", "assigned"];
+    const statuses = ["pending", "under-review", "accepted", "rejected", "assigned", "finalized"];
     return statuses.map((status) => ({
       name: status.replace("-", " "),
       value: applications.filter((item) => item.status === status).length,
     }));
   }, [applications]);
 
-  const statusColors = ["#0ea5e9", "#f59e0b", "#22c55e", "#ef4444", "#6366f1"];
+  const selectedMetricChartData = useMemo(() => {
+    const accepted = applications.filter((item) =>
+      ["accepted", "assigned", "finalized"].includes(item.status),
+    ).length;
+    const inReview = applications.filter((item) =>
+      ["pending", "under-review"].includes(item.status),
+    ).length;
+    const rejected = applications.filter((item) => item.status === "rejected").length;
+    const activePrograms = Array.isArray(profile?.programs)
+      ? profile.programs.length
+      : Number(profile?.totalPrograms || 0);
+
+    switch (activeMetricLabel) {
+      case "Total Applications":
+        return statusChartData.map((item) => ({ state: item.name, value: item.value }));
+      case "Accepted / Assigned":
+        return [
+          { state: "Accepted/Assigned", value: accepted },
+          { state: "In Review", value: inReview },
+          { state: "Rejected", value: rejected },
+        ];
+      case "Announcements":
+        return [
+          { state: "Announcements", value: announcementsCount },
+          { state: "Applications", value: applications.length },
+        ];
+      case "Programs Active":
+        return [
+          { state: "Programs", value: activePrograms },
+          { state: "Applications", value: applications.length },
+        ];
+      default:
+        return [];
+    }
+  }, [activeMetricLabel, announcementsCount, applications, profile?.programs, profile?.totalPrograms, statusChartData]);
+
+  const statusColors = ["#0ea5e9", "#f59e0b", "#22c55e", "#ef4444", "#6366f1", "#16a34a"];
 
   return (
     <DashboardPageShell
@@ -158,8 +201,30 @@ export const UniversityOverviewPage = () => {
           Loading dashboard metrics...
         </div>
       ) : (
-        <MetricGrid metrics={metrics} />
+        <MetricGrid
+          metrics={metrics}
+          activeMetricLabel={activeMetricLabel}
+          onMetricClick={(metric) => setActiveMetricLabel(metric.label)}
+        />
       )}
+
+      {!isLoading && selectedMetricChartData.length > 0 ? (
+        <article className="uaams-chart-card rounded-xl p-5">
+          <h3 className="font-display mb-2 text-slate-900">{activeMetricLabel} State Graph</h3>
+          <p className="mb-4 text-xs text-slate-500">Click a metric card to switch this graph.</p>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={selectedMetricChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="state" tick={{ fontSize: 12 }} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                <Tooltip />
+                <Bar dataKey="value" fill="#2563eb" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </article>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-2">
         <div className="uaams-chart-card rounded-xl p-5">

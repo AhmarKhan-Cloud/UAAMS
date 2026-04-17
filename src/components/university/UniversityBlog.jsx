@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Edit, Eye, Plus, Trash2 } from "lucide-react";
 import { api } from "../../lib/apiClient";
+import { readFileAsDataUrl } from "../../lib/fileDataUrl";
 
 const initialFormState = {
   title: "",
@@ -50,6 +51,7 @@ function UniversityBlog() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState("");
   const [formData, setFormData] = useState(initialFormState);
+  const [imageFileName, setImageFileName] = useState("");
   const [formError, setFormError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -109,6 +111,7 @@ function UniversityBlog() {
   const openCreateForm = () => {
     setEditingId("");
     setFormData(initialFormState);
+    setImageFileName("");
     setFormError("");
     setShowForm(true);
   };
@@ -124,6 +127,7 @@ function UniversityBlog() {
       imageUrl: post.imageUrl,
       status: post.status,
     });
+    setImageFileName("");
     setFormError("");
     setShowForm(true);
   };
@@ -132,7 +136,19 @@ function UniversityBlog() {
     setShowForm(false);
     setEditingId("");
     setFormData(initialFormState);
+    setImageFileName("");
     setFormError("");
+  };
+
+  const handleImageFileChange = async (file) => {
+    if (!file) return;
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      setFormData((previous) => ({ ...previous, imageUrl: dataUrl }));
+      setImageFileName(file.name);
+    } catch {
+      setFormError("Unable to read selected image file.");
+    }
   };
 
   const buildPayload = () => ({
@@ -362,7 +378,7 @@ function UniversityBlog() {
 
       {showForm ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-3xl rounded-xl bg-white p-6">
+          <div className="w-full max-w-3xl rounded-xl bg-white p-6 max-h-[90vh] overflow-y-auto">
             <h2 className="text-slate-900 mb-4">{editingId ? "Edit Blog Post" : "Create Blog Post"}</h2>
 
             <form onSubmit={handleSave} className="space-y-4">
@@ -438,10 +454,27 @@ function UniversityBlog() {
                     type="text"
                     value={formData.imageUrl}
                     onChange={(event) =>
-                      setFormData((previous) => ({ ...previous, imageUrl: event.target.value }))
+                      {
+                        setFormData((previous) => ({ ...previous, imageUrl: event.target.value }));
+                        setImageFileName("");
+                      }
                     }
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="https://example.com/image.jpg"
                   />
+                  <p className="mt-1 text-xs text-slate-500">Use URL or upload image below.</p>
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm text-slate-700">Upload Image</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => handleImageFileChange(event.target.files?.[0])}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  {imageFileName ? (
+                    <p className="mt-1 text-xs text-emerald-700">Selected: {imageFileName}</p>
+                  ) : null}
                 </div>
                 <div>
                   <label className="mb-1 block text-sm text-slate-700">Status</label>

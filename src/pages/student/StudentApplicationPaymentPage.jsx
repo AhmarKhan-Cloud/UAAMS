@@ -170,7 +170,9 @@ export const StudentApplicationPaymentPage = () => {
         <button
           onClick={() =>
             navigate(
-              `/student/apply/${universityId}?program=${encodeURIComponent(application.program || "")}`,
+              `/student/apply/${universityId}?program=${encodeURIComponent(
+                application.program || "",
+              )}&draft=${encodeURIComponent(application._id || applicationId)}`,
             )
           }
           className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"

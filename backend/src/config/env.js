@@ -18,6 +18,7 @@ const env = {
   smtpUser: process.env.SMTP_USER || "",
   smtpPass: process.env.SMTP_PASS || "",
   smtpFrom: process.env.SMTP_FROM || "",
+  frontendUrl: process.env.FRONTEND_URL || "",
 };
 
 module.exports = env;

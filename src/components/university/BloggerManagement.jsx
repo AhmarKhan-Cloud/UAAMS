@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
+import { PasswordField } from "../shared/PasswordField";
 import { api } from "../../lib/apiClient";
 import { onDataUpdated } from "../../lib/socketClient";
 
@@ -354,14 +355,14 @@ function BloggerManagement() {
 
               <div>
                 <label className="mb-1 block text-sm text-slate-700">Password</label>
-                <input
-                  type="password"
+                <PasswordField
                   value={formData.password}
                   onChange={(event) =>
                     setFormData((previous) => ({ ...previous, password: event.target.value }))
                   }
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
+                  autoComplete="new-password"
                 />
               </div>
 

@@ -73,33 +73,66 @@ const defaultApplicationFields = [
   },
 ];
 
-const normalizeUniversity = (item) => ({
-  id: String(item?.id || item?._id || ""),
-  name: item?.name || "University",
-  location: item?.location || item?.city || "Pakistan",
-  programs: Array.isArray(item?.programs)
-    ? item.programs.map((program) =>
-        typeof program === "string" ? program : program?.name || "",
-      )
-    : [],
-  programRecommendations: Array.isArray(item?.programRecommendations)
-    ? item.programRecommendations.map((program) => ({
-        name: String(program?.name || "").trim(),
-        requiredAggregate: Number(program?.requiredAggregate || 0),
-        matchScore: Number(program?.matchScore || 0),
-        seats: Number(program?.seats || 0),
-        feeRange: String(program?.feeRange || "").trim(),
-        deadlineDate: program?.deadlineDate || null,
-        deadline: program?.deadline || "Not announced",
-      }))
-    : [],
-  feeRange: item?.feeRange || "Contact university",
-  requiredAggregate: Number(item?.requiredAggregate || 0),
-  deadline: item?.deadline || "Not announced",
-  matchScore: Number(item?.matchScore || 0),
-  type: String(item?.type || "public"),
-  applicationFee: Number(item?.applicationFee || 0),
-});
+const normalizeUniversity = (item) => {
+  const rawPrograms = Array.isArray(item?.programs) ? item.programs : [];
+  const programDetailsFromPrograms = rawPrograms
+    .filter((program) => typeof program === "object" && program !== null)
+    .map((program) => ({
+      name: String(program?.name || "").trim(),
+      requiredAggregate: Number(program?.requiredAggregate || 0),
+      seats: Number(program?.seats || 0),
+      feeRange: String(program?.feeRange || "").trim(),
+      deadlineDate: program?.deadlineDate || null,
+      isAdmissionOpen: program?.isAdmissionOpen !== false,
+    }))
+    .filter((program) => program.name);
+
+  const providedProgramDetails = Array.isArray(item?.programDetails)
+    ? item.programDetails
+        .map((program) => ({
+          name: String(program?.name || "").trim(),
+          requiredAggregate: Number(program?.requiredAggregate || 0),
+          seats: Number(program?.seats || 0),
+          feeRange: String(program?.feeRange || "").trim(),
+          deadlineDate: program?.deadlineDate || null,
+          isAdmissionOpen: program?.isAdmissionOpen !== false,
+        }))
+        .filter((program) => program.name)
+    : [];
+
+  const programDetails =
+    providedProgramDetails.length > 0 ? providedProgramDetails : programDetailsFromPrograms;
+
+  return {
+    id: String(item?.id || item?._id || ""),
+    name: item?.name || "University",
+    location: item?.location || item?.city || "Pakistan",
+    programs: rawPrograms.length
+      ? rawPrograms.map((program) =>
+          typeof program === "string" ? program : program?.name || "",
+        )
+      : [],
+    programDetails,
+    programRecommendations: Array.isArray(item?.programRecommendations)
+      ? item.programRecommendations.map((program) => ({
+          name: String(program?.name || "").trim(),
+          requiredAggregate: Number(program?.requiredAggregate || 0),
+          matchScore: Number(program?.matchScore || 0),
+          seats: Number(program?.seats || 0),
+          feeRange: String(program?.feeRange || "").trim(),
+          deadlineDate: program?.deadlineDate || null,
+          deadline: program?.deadline || "Not announced",
+          isAdmissionOpen: program?.isAdmissionOpen !== false,
+        }))
+      : [],
+    feeRange: item?.feeRange || "Contact university",
+    requiredAggregate: Number(item?.requiredAggregate || 0),
+    deadline: item?.deadline || "Not announced",
+    matchScore: Number(item?.matchScore || 0),
+    type: String(item?.type || "public"),
+    applicationFee: Number(item?.applicationFee || 0),
+  };
+};
 
 const getRecommendedUniversities = async () => {
   const response = await api.get("/students/recommendations");

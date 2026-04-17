@@ -161,6 +161,7 @@ const listUniversities = asyncHandler(async (req, res) => {
               feeRange: program.feeRange,
               requiredAggregate: program.requiredAggregate,
               deadlineDate: program.deadlineDate || null,
+              isAdmissionOpen: program.isAdmissionOpen !== false,
             }))
           : [],
       };
@@ -209,7 +210,12 @@ const getUniversityById = asyncHandler(async (req, res) => {
         applicationFee: Number(profile?.applicationFee || 0),
         applicationStartDate: profile?.applicationStartDate || null,
         applicationEndDate: profile?.applicationEndDate || null,
-        programs: profile?.programs || [],
+        programs: Array.isArray(profile?.programs)
+          ? profile.programs.map((program) => ({
+              ...program,
+              isAdmissionOpen: program?.isAdmissionOpen !== false,
+            }))
+          : [],
         profile,
       },
     },

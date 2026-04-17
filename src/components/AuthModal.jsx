@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { X, GraduationCap, School, PenTool, Shield, CheckCircle2 } from "lucide-react";
+import { PasswordField } from "./shared/PasswordField";
 function AuthModal({ mode, role, onClose, onLogin }) {
   const [isLogin, setIsLogin] = useState(mode === "login");
   const [showApprovalModal, setShowApprovalModal] = useState(false);
@@ -246,27 +247,27 @@ function AuthModal({ mode, role, onClose, onLogin }) {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-slate-700 mb-2 text-sm">Password *</label>
-                    <input
-    type="password"
+                    <PasswordField
     name="password"
     value={formData.password}
     onChange={handleChange}
     placeholder="Create a strong password"
     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
     required
+    autoComplete="new-password"
   />
                   </div>
 
                   <div>
                     <label className="block text-slate-700 mb-2 text-sm">Confirm Password *</label>
-                    <input
-    type="password"
+                    <PasswordField
     name="confirmPassword"
     value={formData.confirmPassword}
     onChange={handleChange}
     placeholder="Re-enter your password"
     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
     required
+    autoComplete="new-password"
   />
                   </div>
                 </div>
@@ -315,27 +316,27 @@ function AuthModal({ mode, role, onClose, onLogin }) {
           {(isLogin || role !== "university") && <>
               <div>
                 <label className="block text-slate-700 mb-2 text-sm">Password</label>
-                <input
-    type="password"
+                <PasswordField
     name="password"
     value={formData.password}
     onChange={handleChange}
     placeholder="Enter your password"
     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
     required
+    autoComplete={isLogin ? "current-password" : "new-password"}
   />
               </div>
 
               {!isLogin && <div>
                   <label className="block text-slate-700 mb-2 text-sm">Confirm Password</label>
-                  <input
-    type="password"
+                  <PasswordField
     name="confirmPassword"
     value={formData.confirmPassword}
     onChange={handleChange}
     placeholder="Re-enter your password"
     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
     required={!isLogin}
+    autoComplete="new-password"
   />
                 </div>}
             </>}

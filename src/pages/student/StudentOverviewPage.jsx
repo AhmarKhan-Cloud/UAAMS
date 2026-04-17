@@ -54,6 +54,7 @@ export const StudentOverviewPage = () => {
   const [recommendationsCount, setRecommendationsCount] = useState(0);
   const [announcementsCount, setAnnouncementsCount] = useState(0);
   const [profileCompletion, setProfileCompletion] = useState(0);
+  const [activeMetricLabel, setActiveMetricLabel] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -103,7 +104,7 @@ export const StudentOverviewPage = () => {
       ["pending", "under-review"].includes(item.status),
     ).length;
     const accepted = applications.filter((item) =>
-      ["accepted", "assigned"].includes(item.status),
+      ["accepted", "assigned", "finalized"].includes(item.status),
     ).length;
 
     return [
@@ -130,6 +131,12 @@ export const StudentOverviewPage = () => {
     ];
   }, [applications, announcementsCount, profileCompletion, recommendationsCount]);
 
+  useEffect(() => {
+    if (metrics.length > 0 && !metrics.some((item) => item.label === activeMetricLabel)) {
+      setActiveMetricLabel(metrics[0].label);
+    }
+  }, [metrics, activeMetricLabel]);
+
   const statusChartData = useMemo(() => {
     const statusMap = new Map([
       ["not-submitted", 0],
@@ -138,6 +145,7 @@ export const StudentOverviewPage = () => {
       ["accepted", 0],
       ["rejected", 0],
       ["assigned", 0],
+      ["finalized", 0],
     ]);
 
     applications.forEach((item) => {
@@ -163,6 +171,42 @@ export const StudentOverviewPage = () => {
       .map(([, value]) => value);
   }, [applications]);
 
+  const selectedMetricChartData = useMemo(() => {
+    const inProgress = applications.filter((item) =>
+      ["pending", "under-review"].includes(item.status),
+    ).length;
+    const accepted = applications.filter((item) =>
+      ["accepted", "assigned", "finalized"].includes(item.status),
+    ).length;
+    const rejected = applications.filter((item) => item.status === "rejected").length;
+
+    switch (activeMetricLabel) {
+      case "Applications Submitted":
+        return statusChartData.map((item) => ({
+          state: item.status,
+          value: item.count,
+        }));
+      case "Offers / Assigned":
+        return [
+          { state: "Accepted/Assigned", value: accepted },
+          { state: "In Review", value: inProgress },
+          { state: "Rejected", value: rejected },
+        ];
+      case "Recommendations":
+        return [
+          { state: "Recommendations", value: recommendationsCount },
+          { state: "Applications", value: applications.length },
+        ];
+      case "Profile Completion":
+        return [
+          { state: "Completed", value: profileCompletion },
+          { state: "Remaining", value: Math.max(0, 100 - profileCompletion) },
+        ];
+      default:
+        return [];
+    }
+  }, [activeMetricLabel, applications, profileCompletion, recommendationsCount, statusChartData]);
+
   return (
     <DashboardPageShell
       title="Student Command Center"
@@ -179,8 +223,30 @@ export const StudentOverviewPage = () => {
           Loading dashboard metrics...
         </div>
       ) : (
-        <MetricGrid metrics={metrics} />
+        <MetricGrid
+          metrics={metrics}
+          activeMetricLabel={activeMetricLabel}
+          onMetricClick={(metric) => setActiveMetricLabel(metric.label)}
+        />
       )}
+
+      {!isLoading && selectedMetricChartData.length > 0 ? (
+        <article className="uaams-chart-card rounded-xl p-5">
+          <h2 className="font-display text-lg text-slate-900">{activeMetricLabel} State Graph</h2>
+          <p className="mb-4 text-xs text-slate-500">Click a metric card to switch this graph.</p>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={selectedMetricChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="state" tick={{ fontSize: 12 }} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                <Tooltip />
+                <Bar dataKey="value" fill="#22c55e" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </article>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-2">
         <article className="uaams-chart-card rounded-xl p-5">
@@ -228,20 +294,7 @@ export const StudentOverviewPage = () => {
         </article>
       </div>
 
-      <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="font-display text-slate-900">Quick Actions</h2>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          {quickLinks.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 transition-all hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </div>
-      </article>
+      
     </DashboardPageShell>
   );
 };

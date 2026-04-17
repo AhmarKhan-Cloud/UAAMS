@@ -5,6 +5,13 @@ import { getRecommendedUniversities } from "../../data/universityRecommendations
 import { onDataUpdated } from "../../lib/socketClient";
 
 const clampPercentage = (value) => Math.max(0, Math.min(100, Number(value || 0)));
+const hasDeadlinePassed = (value) => {
+  if (!value) return false;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+  date.setHours(23, 59, 59, 999);
+  return date.getTime() < Date.now();
+};
 
 const resolveProgramRecommendations = (university) => {
   if (Array.isArray(university?.programRecommendations) && university.programRecommendations.length > 0) {
@@ -14,7 +21,9 @@ const resolveProgramRecommendations = (university) => {
         name: String(item.name).trim(),
         requiredAggregate: Number(item.requiredAggregate || 0),
         matchScore: clampPercentage(item.matchScore),
+        deadlineDate: item?.deadlineDate || null,
         deadline: item?.deadline || "Not announced",
+        isAdmissionOpen: item?.isAdmissionOpen !== false,
       }))
       .sort((a, b) => b.matchScore - a.matchScore);
   }
@@ -24,7 +33,9 @@ const resolveProgramRecommendations = (university) => {
       name: typeof program === "string" ? program : String(program?.name || ""),
       requiredAggregate: Number(university?.requiredAggregate || 0),
       matchScore: clampPercentage(university?.matchScore),
+      deadlineDate: program?.deadlineDate || null,
       deadline: university?.deadline || "Not announced",
+      isAdmissionOpen: program?.isAdmissionOpen !== false,
     }))
     .filter((item) => item.name);
 };
@@ -289,25 +300,54 @@ function UniversityCard({ university }) {
                   key={`${university.id}-${program.name}`}
                   className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
                 >
-                  <div>
-                    <div className="text-sm text-slate-900">{program.name}</div>
-                    <div className="text-xs text-slate-600">
-                      Min Aggregate: {Number(program.requiredAggregate || 0)}%
-                    </div>
-                    <div className="text-xs text-slate-600">Deadline: {program.deadline || "Not announced"}</div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs text-emerald-700">
-                      Match {Number(program.matchScore || 0)}%
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleApplyClick(program.name)}
-                      className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs text-white hover:bg-emerald-700"
-                    >
-                      Apply Now
-                    </button>
-                  </div>
+                  {(() => {
+                    const isClosedByUniversity = program.isAdmissionOpen === false;
+                    const isPastDeadline = hasDeadlinePassed(program.deadlineDate);
+                    const isApplyDisabled = isClosedByUniversity || isPastDeadline;
+                    const statusLabel = isClosedByUniversity
+                      ? "Admission Closed"
+                      : isPastDeadline
+                        ? "Deadline Passed"
+                        : "Admission Open";
+
+                    return (
+                      <>
+                        <div>
+                          <div className="text-sm text-slate-900">{program.name}</div>
+                          <div className="text-xs text-slate-600">
+                            Min Aggregate: {Number(program.requiredAggregate || 0)}%
+                          </div>
+                          <div className="text-xs text-slate-600">
+                            Deadline: {program.deadline || "Not announced"}
+                          </div>
+                          <div className="mt-1 text-xs">
+                            <span
+                              className={`rounded-full px-2 py-1 ${
+                                isApplyDisabled
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-emerald-100 text-emerald-700"
+                              }`}
+                            >
+                              {statusLabel}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs text-emerald-700">
+                            Match {Number(program.matchScore || 0)}%
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleApplyClick(program.name)}
+                            disabled={isApplyDisabled}
+                            className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isApplyDisabled ? "Unavailable" : "Apply Now"}
+                          </button>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               ))}
             </div>
