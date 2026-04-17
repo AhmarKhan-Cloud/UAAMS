@@ -92,6 +92,7 @@ const getRecommendations = asyncHandler(async (req, res) => {
               feeRange: String(item?.feeRange || "").trim(),
               seats: Number(item?.seats || 0),
               deadlineDate: item?.deadlineDate || null,
+              isAdmissionOpen: item?.isAdmissionOpen !== false,
             }))
           : parsedProgramsFromRegistration.map((name) => ({
               name,
@@ -99,6 +100,7 @@ const getRecommendations = asyncHandler(async (req, res) => {
               feeRange: "Contact university",
               seats: 0,
               deadlineDate: null,
+              isAdmissionOpen: true,
             }));
 
       const uniqueProgramMap = new Map();
@@ -138,6 +140,7 @@ const getRecommendations = asyncHandler(async (req, res) => {
             matchScore: Math.max(0, Math.min(100, Math.round(matchScore))),
             deadlineDate: program.deadlineDate || null,
             deadline: formatReadableDate(program.deadlineDate),
+            isAdmissionOpen: program.isAdmissionOpen !== false,
           };
         })
         .filter((program) => program.requiredAggregate >= minAggregate)

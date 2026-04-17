@@ -2,8 +2,13 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { DashboardLayout } from "../layouts/DashboardLayout";
 import { PublicLayout } from "../layouts/PublicLayout";
+import { ForgotPasswordOtpPage } from "../pages/auth/ForgotPasswordOtpPage";
+import { ForgotPasswordPage } from "../pages/auth/ForgotPasswordPage";
 import { LoginPage } from "../pages/auth/LoginPage";
 import { RegisterPage } from "../pages/auth/RegisterPage";
+import { ResetPasswordPage } from "../pages/auth/ResetPasswordPage";
+import { VerifyEmailPage } from "../pages/auth/VerifyEmailPage";
+import { VerifyEmailPendingPage } from "../pages/auth/VerifyEmailPendingPage";
 import { HomePage } from "../pages/public/HomePage";
 import { NotFoundPage } from "../pages/shared/NotFoundPage";
 import { UnauthorizedPage } from "../pages/shared/UnauthorizedPage";
@@ -39,8 +44,15 @@ export const AppRoutes = () => {
     <Routes>
       <Route path="/" element={<PublicLayout />}>
         <Route index element={<HomePage />} />
-        <Route path="login" element={<LoginPage />} />
-        <Route path="register" element={<RegisterPage />} />
+        <Route path="login" element={<Navigate to="/login/student" replace />} />
+        <Route path="login/:role" element={<LoginPage />} />
+        <Route path="register" element={<Navigate to="/register/student" replace />} />
+        <Route path="register/:role" element={<RegisterPage />} />
+        <Route path="forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="forgot-password/verify" element={<ForgotPasswordOtpPage />} />
+        <Route path="forgot-password/reset" element={<ResetPasswordPage />} />
+        <Route path="verify-email" element={<VerifyEmailPage />} />
+        <Route path="verify-email/pending" element={<VerifyEmailPendingPage />} />
         <Route path="unauthorized" element={<UnauthorizedPage />} />
       </Route>
 

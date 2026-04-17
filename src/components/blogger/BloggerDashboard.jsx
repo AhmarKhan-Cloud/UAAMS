@@ -15,6 +15,7 @@ import { DashboardPageShell } from "../../pages/shared/DashboardPageShell";
 import { MetricGrid } from "../../pages/shared/MetricGrid";
 import { api } from "../../lib/apiClient";
 import { onDataUpdated } from "../../lib/socketClient";
+import { readFileAsDataUrl } from "../../lib/fileDataUrl";
 
 const initialFormState = {
   title: "",
@@ -71,6 +72,7 @@ const monthLabel = (value) =>
 function BloggerDashboard() {
   const [metrics, setMetrics] = useState(defaultMetrics);
   const [managedUniversity, setManagedUniversity] = useState(null);
+  const [activeMetricLabel, setActiveMetricLabel] = useState("");
 
   const [posts, setPosts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -82,6 +84,7 @@ function BloggerDashboard() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState("");
   const [formData, setFormData] = useState(initialFormState);
+  const [imageFileName, setImageFileName] = useState("");
   const [formError, setFormError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -155,6 +158,15 @@ function BloggerDashboard() {
     [managedUniversity?.name, metrics],
   );
 
+  useEffect(() => {
+    if (
+      dashboardMetrics.length > 0 &&
+      !dashboardMetrics.some((item) => item.label === activeMetricLabel)
+    ) {
+      setActiveMetricLabel(dashboardMetrics[0].label);
+    }
+  }, [dashboardMetrics, activeMetricLabel]);
+
   const filteredPosts = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
 
@@ -192,16 +204,60 @@ function BloggerDashboard() {
       .map(([, item]) => item);
   }, [posts]);
 
+  const selectedMetricChartData = useMemo(() => {
+    switch (activeMetricLabel) {
+      case "Total Posts":
+        return [
+          { state: "Published", value: Number(metrics.publishedPosts || 0) },
+          { state: "Drafts", value: Number(metrics.draftPosts || 0) },
+        ];
+      case "Published":
+        return [
+          { state: "Published", value: Number(metrics.publishedPosts || 0) },
+          { state: "Unpublished", value: Math.max(0, Number(metrics.totalPosts || 0) - Number(metrics.publishedPosts || 0)) },
+        ];
+      case "Drafts":
+        return [
+          { state: "Drafts", value: Number(metrics.draftPosts || 0) },
+          { state: "Published", value: Number(metrics.publishedPosts || 0) },
+        ];
+      case "Total Views":
+        return posts.slice(0, 8).map((item) => ({
+          state: item.title.slice(0, 18) || "Post",
+          value: Number(item.views || 0),
+        }));
+      case "Post Likes":
+        return posts.slice(0, 8).map((item) => ({
+          state: item.title.slice(0, 18) || "Post",
+          value: Number(item.likesCount || 0),
+        }));
+      case "Comments":
+        return posts.slice(0, 8).map((item) => ({
+          state: item.title.slice(0, 18) || "Post",
+          value: Number(item.commentsCount || 0),
+        }));
+      case "Replies":
+        return posts.slice(0, 8).map((item) => ({
+          state: item.title.slice(0, 18) || "Post",
+          value: Number(item.repliesCount || 0),
+        }));
+      default:
+        return [];
+    }
+  }, [activeMetricLabel, metrics, posts]);
+
   const closeForm = () => {
     setShowForm(false);
     setEditingId("");
     setFormData(initialFormState);
+    setImageFileName("");
     setFormError("");
   };
 
   const openCreateForm = () => {
     setEditingId("");
     setFormData(initialFormState);
+    setImageFileName("");
     setFormError("");
     setShowForm(true);
   };
@@ -217,8 +273,20 @@ function BloggerDashboard() {
       imageUrl: post.imageUrl,
       status: post.status,
     });
+    setImageFileName("");
     setFormError("");
     setShowForm(true);
+  };
+
+  const handleImageFileChange = async (file) => {
+    if (!file) return;
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      setFormData((previous) => ({ ...previous, imageUrl: dataUrl }));
+      setImageFileName(file.name);
+    } catch {
+      setFormError("Unable to read selected image file.");
+    }
   };
 
   const buildPayload = () => ({
@@ -293,8 +361,30 @@ function BloggerDashboard() {
           Loading dashboard...
         </div>
       ) : (
-        <MetricGrid metrics={dashboardMetrics} />
+        <MetricGrid
+          metrics={dashboardMetrics}
+          activeMetricLabel={activeMetricLabel}
+          onMetricClick={(metric) => setActiveMetricLabel(metric.label)}
+        />
       )}
+
+      {!isLoading && selectedMetricChartData.length > 0 ? (
+        <article className="uaams-chart-card rounded-xl p-5">
+          <h3 className="font-display mb-2 text-slate-900">{activeMetricLabel} State Graph</h3>
+          <p className="mb-4 text-xs text-slate-500">Click a metric card to switch this graph.</p>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={selectedMetricChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="state" />
+                <YAxis allowDecimals={false} />
+                <Tooltip />
+                <Bar dataKey="value" fill="#0ea5e9" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </article>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-2">
         <article className="uaams-chart-card rounded-xl p-5">
@@ -446,7 +536,7 @@ function BloggerDashboard() {
 
       {showForm ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-3xl rounded-xl bg-white p-6">
+          <div className="w-full max-w-3xl rounded-xl bg-white p-6 max-h-[90vh] overflow-y-auto">
             <h3 className="mb-4 text-slate-900">{editingId ? "Edit Post" : "Create Post"}</h3>
 
             <form onSubmit={handleSave} className="space-y-4">
@@ -522,10 +612,27 @@ function BloggerDashboard() {
                     type="text"
                     value={formData.imageUrl}
                     onChange={(event) =>
-                      setFormData((previous) => ({ ...previous, imageUrl: event.target.value }))
+                      {
+                        setFormData((previous) => ({ ...previous, imageUrl: event.target.value }));
+                        setImageFileName("");
+                      }
                     }
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="https://example.com/image.jpg"
                   />
+                  <p className="mt-1 text-xs text-slate-500">Use URL or upload image below.</p>
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm text-slate-700">Upload Image</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => handleImageFileChange(event.target.files?.[0])}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  {imageFileName ? (
+                    <p className="mt-1 text-xs text-emerald-700">Selected: {imageFileName}</p>
+                  ) : null}
                 </div>
                 <div>
                   <label className="mb-1 block text-sm text-slate-700">Status</label>

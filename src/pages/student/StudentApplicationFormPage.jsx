@@ -255,15 +255,25 @@ const ensureRequiredDocumentFields = (fields = []) => {
   return next;
 };
 
+const hasDeadlinePassed = (value) => {
+  if (!value) return false;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+  date.setHours(23, 59, 59, 999);
+  return date.getTime() < Date.now();
+};
+
 export const StudentApplicationFormPage = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const { universityId } = useParams();
   const [searchParams] = useSearchParams();
   const selectedProgram = searchParams.get("program") || "";
+  const draftId = searchParams.get("draft") || "";
 
   const [university, setUniversity] = useState(null);
   const [formFields, setFormFields] = useState(defaultApplicationFields);
+  const [draftProgram, setDraftProgram] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -284,11 +294,17 @@ export const StudentApplicationFormPage = () => {
       setIsLoading(true);
       setError("");
       try {
-        const [universityResult, fieldsResult, profileResponse] = await Promise.all([
+        const requests = [
           getUniversityById(universityId),
           getApplicationFieldsForUniversity(universityId),
           api.get("/students/me/profile"),
-        ]);
+        ];
+
+        if (draftId) {
+          requests.push(api.get(`/applications/${draftId}`));
+        }
+
+        const [universityResult, fieldsResult, profileResponse, draftResponse] = await Promise.all(requests);
 
         if (!isMounted) return;
         const effectiveFields =
@@ -313,6 +329,37 @@ export const StudentApplicationFormPage = () => {
           ...previous,
           ...autoFillData.fileHints,
         }));
+
+        if (draftResponse?.data?.application) {
+          const draftApplication = draftResponse.data.application;
+          const draftUniversityId = String(
+            draftApplication?.university?._id ||
+              draftApplication?.university?.id ||
+              draftApplication?.university ||
+              "",
+          );
+
+          if (draftUniversityId && draftUniversityId !== String(universityId)) {
+            throw new Error("Selected draft does not belong to this university.");
+          }
+
+          setDraftProgram(String(draftApplication?.program || ""));
+          setFormData((previous) => ({
+            ...previous,
+            ...(draftApplication?.formData || {}),
+          }));
+
+          const nextFileHints = {};
+          fieldsWithRequiredDocs.forEach((field) => {
+            if (field.type !== "file") return;
+            const value = draftApplication?.formData?.[field.id];
+            if (String(value || "").trim()) {
+              nextFileHints[field.id] = field.label || "Attached document";
+            }
+          });
+          setFileHints((previous) => ({ ...previous, ...nextFileHints }));
+        }
+
         setAutoFillMessage(
           Object.keys(autoFillData.values).length > 0
             ? "Form was auto-filled from your student profile. You can edit any field before submission."
@@ -333,12 +380,30 @@ export const StudentApplicationFormPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [universityId, currentUser]);
+  }, [universityId, currentUser, draftId]);
 
   const resolvedProgram = useMemo(
-    () => selectedProgram || university?.programs?.[0] || "Program",
-    [selectedProgram, university],
+    () => selectedProgram || draftProgram || university?.programs?.[0] || "Program",
+    [selectedProgram, draftProgram, university],
   );
+  const selectedProgramDetails = useMemo(() => {
+    const details = Array.isArray(university?.programDetails) ? university.programDetails : [];
+    const normalizedProgram = String(resolvedProgram || "").trim().toLowerCase();
+    return (
+      details.find(
+        (program) =>
+          String(program?.name || "").trim().toLowerCase() === normalizedProgram,
+      ) || null
+    );
+  }, [resolvedProgram, university?.programDetails]);
+  const programMissingFromUniversity =
+    Array.isArray(university?.programDetails) &&
+    university.programDetails.length > 0 &&
+    !selectedProgramDetails;
+  const isProgramAdmissionClosed = selectedProgramDetails?.isAdmissionOpen === false;
+  const isProgramDeadlinePassed = hasDeadlinePassed(selectedProgramDetails?.deadlineDate);
+  const isSubmissionBlocked =
+    programMissingFromUniversity || isProgramAdmissionClosed || isProgramDeadlinePassed;
 
   const handleChange = (fieldId, value) => {
     setFormData((previous) => ({ ...previous, [fieldId]: value }));
@@ -373,6 +438,22 @@ export const StudentApplicationFormPage = () => {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setSubmitError("");
+
+    if (programMissingFromUniversity) {
+      setSubmitError("Selected program is no longer available. Please choose another program.");
+      return;
+    }
+
+    if (isProgramAdmissionClosed) {
+      setSubmitError("Admission is currently closed for this program.");
+      return;
+    }
+
+    if (isProgramDeadlinePassed) {
+      setSubmitError("Application deadline has passed for this program.");
+      return;
+    }
+
     const nextErrors = {};
 
     formFields.forEach((field) => {
@@ -388,21 +469,29 @@ export const StudentApplicationFormPage = () => {
 
     setIsSubmitting(true);
     try {
-      const response = await api.post("/applications", {
+      const payload = {
         universityId: university?.id || universityId,
         program: resolvedProgram,
         formData,
-      });
+      };
 
-      const applicationId = response?.data?.application?._id;
+      let applicationId = "";
+      if (draftId) {
+        const response = await api.patch(`/applications/${draftId}`, payload);
+        applicationId = response?.data?.application?._id || draftId;
+      } else {
+        const response = await api.post("/applications", payload);
+        applicationId = response?.data?.application?._id || "";
+      }
+
       if (!applicationId) {
-        setSubmitError("Application draft was created but ID was not returned.");
+        setSubmitError("Application draft could not be prepared for payment.");
         return;
       }
 
       navigate(`/student/apply/${universityId}/payment/${applicationId}`);
     } catch (submissionError) {
-      setSubmitError(submissionError?.message || "Unable to create application draft.");
+      setSubmitError(submissionError?.message || "Unable to save application draft.");
     } finally {
       setIsSubmitting(false);
     }
@@ -457,6 +546,11 @@ export const StudentApplicationFormPage = () => {
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-slate-200 bg-white p-6">
+        {draftId ? (
+          <div className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            Editing unpaid draft. You can update details before payment.
+          </div>
+        ) : null}
         <div className="rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-800">
           Application Fee: PKR {Number(university.applicationFee || 0).toLocaleString()} (to be paid on
           next page)
@@ -464,6 +558,21 @@ export const StudentApplicationFormPage = () => {
         {autoFillMessage ? (
           <div className="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
             {autoFillMessage}
+          </div>
+        ) : null}
+        {programMissingFromUniversity ? (
+          <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+            This program is no longer available. Please go back to recommendations.
+          </div>
+        ) : null}
+        {isProgramAdmissionClosed ? (
+          <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+            Admission is closed for this program.
+          </div>
+        ) : null}
+        {isProgramDeadlinePassed ? (
+          <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+            Application deadline has passed for this program.
           </div>
         ) : null}
 
@@ -503,10 +612,14 @@ export const StudentApplicationFormPage = () => {
           </button>
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isSubmissionBlocked}
             className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white hover:bg-emerald-700"
           >
-            {isSubmitting ? "Creating Draft..." : "Continue to Payment"}
+            {isSubmitting
+              ? draftId
+                ? "Updating Draft..."
+                : "Creating Draft..."
+              : "Continue to Payment"}
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>

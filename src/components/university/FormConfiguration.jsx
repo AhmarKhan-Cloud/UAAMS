@@ -71,6 +71,7 @@ const normalizeProgram = (program, index) => ({
   deadlineDate: program?.deadlineDate
     ? new Date(program.deadlineDate).toISOString().slice(0, 10)
     : "",
+  isAdmissionOpen: program?.isAdmissionOpen !== false,
 });
 
 function FormConfiguration() {
@@ -203,6 +204,7 @@ function FormConfiguration() {
           feeRange: String(program.feeRange || "").trim(),
           requiredAggregate: Number(program.requiredAggregate || 0),
           deadlineDate: program.deadlineDate ? String(program.deadlineDate) : null,
+          isAdmissionOpen: program.isAdmissionOpen !== false,
         }))
         .filter((program) => program.name);
 
@@ -405,6 +407,17 @@ function ProgramItem({ program, onEdit, onDelete }) {
         <div className="text-slate-500 text-xs">
           Deadline: {program.deadlineDate || "Not announced"}
         </div>
+        <div className="mt-1 text-xs">
+          <span
+            className={`rounded-full px-2 py-1 ${
+              program.isAdmissionOpen
+                ? "bg-emerald-100 text-emerald-700"
+                : "bg-red-100 text-red-700"
+            }`}
+          >
+            {program.isAdmissionOpen ? "Admission Open" : "Admission Closed"}
+          </span>
+        </div>
       </div>
       <div className="flex items-center gap-2">
         <button
@@ -521,16 +534,19 @@ function AddFieldModal({ onAdd, onClose }) {
 }
 
 function ProgramModal({ program, onSave, onClose }) {
-  const [formData, setFormData] = useState(
-    program || {
+  const [formData, setFormData] = useState(() => {
+    const initialProgram = program || {};
+    return {
       id: "",
       name: "",
       seats: 0,
       feeRange: "",
       requiredAggregate: 0,
       deadlineDate: "",
-    },
-  );
+      ...initialProgram,
+      isAdmissionOpen: initialProgram.isAdmissionOpen !== false,
+    };
+  });
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -617,6 +633,20 @@ function ProgramModal({ program, onSave, onClose }) {
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={formData.isAdmissionOpen !== false}
+              onChange={(event) =>
+                setFormData({
+                  ...formData,
+                  isAdmissionOpen: event.target.checked,
+                })
+              }
+              className="rounded border-slate-300"
+            />
+            Admission Open for this program
+          </label>
           <div className="flex gap-3 pt-4">
             <button
               type="submit"

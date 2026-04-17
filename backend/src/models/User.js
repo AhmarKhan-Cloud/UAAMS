@@ -93,6 +93,31 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    emailVerified: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
+    emailVerificationTokenHash: {
+      type: String,
+      default: "",
+      select: false,
+    },
+    emailVerificationExpiresAt: {
+      type: Date,
+      default: null,
+      select: false,
+    },
+    passwordResetOtpHash: {
+      type: String,
+      default: "",
+      select: false,
+    },
+    passwordResetOtpExpiresAt: {
+      type: Date,
+      default: null,
+      select: false,
+    },
   },
   { timestamps: true }
 );
@@ -135,6 +160,7 @@ userSchema.methods.toSafeObject = function toSafeObject() {
     studentCount: this.studentCount,
     programsOffered: this.programsOffered,
     managedUniversity: this.managedUniversity,
+    emailVerified: this.emailVerified,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,
   };

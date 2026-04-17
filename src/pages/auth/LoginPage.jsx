@@ -1,22 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { PasswordField } from "../../components/shared/PasswordField";
 import { useAuth } from "../../context/AuthContext";
 import { resolveRolePath, roleLabelMap } from "../../utils/rolePaths";
 
 const roleOptions = ["student", "university", "blogger", "admin"];
+const selfRegisterRoles = new Set(["student", "university"]);
 
 export const LoginPage = () => {
-  const [searchParams] = useSearchParams();
-  const initialRole = searchParams.get("role");
+  const { role: roleParam } = useParams();
+  const role = roleOptions.includes(roleParam) ? roleParam : "student";
+
   const location = useLocation();
   const navigate = useNavigate();
   const { login, currentUser } = useAuth();
 
-  const [role, setRole] = useState(
-    roleOptions.includes(initialRole) ? initialRole : "student",
-  );
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -31,11 +32,17 @@ export const LoginPage = () => {
     }
   }, [currentUser, navigate]);
 
+  useEffect(() => {
+    if (!roleOptions.includes(roleParam || "")) {
+      navigate("/login/student", { replace: true });
+    }
+  }, [navigate, roleParam]);
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setIsSubmitting(true);
 
-    const result = await login({ identifier, password, role });
+    const result = await login({ identifier, password, role, rememberMe });
 
     if (!result.ok) {
       setMessage(result.message);
@@ -53,27 +60,12 @@ export const LoginPage = () => {
     <div className="mx-auto flex min-h-[80vh] w-full max-w-7xl items-center px-4 py-10 sm:px-6 lg:px-8">
       <div className="grid w-full gap-6 lg:grid-cols-2">
         <section className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-          <h1 className="text-2xl text-slate-900">Sign in to your account</h1>
+          <h1 className="text-2xl text-slate-900">{roleLabelMap[role]} Login</h1>
           <p className="mt-2 text-sm text-slate-600">
-            Select your role and continue to your dashboard.
+            Sign in to your {roleLabelMap[role].toLowerCase()} portal.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-            <div>
-              <label className="mb-2 block text-sm text-slate-700">Role</label>
-              <select
-                value={role}
-                onChange={(event) => setRole(event.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              >
-                {roleOptions.map((item) => (
-                  <option key={item} value={item}>
-                    {roleLabelMap[item]}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             <div>
               <label className="mb-2 block text-sm text-slate-700">
                 {role === "blogger" ? "Email or Username" : "Email"}
@@ -90,14 +82,29 @@ export const LoginPage = () => {
 
             <div>
               <label className="mb-2 block text-sm text-slate-700">Password</label>
-              <input
-                type="password"
+              <PasswordField
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="Enter your password"
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 required
+                autoComplete="current-password"
               />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(event) => setRememberMe(event.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300"
+                />
+                Remember me
+              </label>
+              <Link to="/forgot-password" className="text-sm text-emerald-700 hover:text-emerald-800">
+                Forgot password?
+              </Link>
             </div>
 
             {message ? (
@@ -113,31 +120,23 @@ export const LoginPage = () => {
             </button>
           </form>
 
-          <p className="mt-5 text-sm text-slate-600">
-            Don&apos;t have an account?{" "}
-            <Link to="/register" className="text-emerald-700 hover:text-emerald-800">
-              Create one
-            </Link>
-          </p>
+          {selfRegisterRoles.has(role) ? (
+            <p className="mt-5 text-sm text-slate-600">
+              Don&apos;t have an account?{" "}
+              <Link to={`/register/${role}`} className="text-emerald-700 hover:text-emerald-800">
+                Create one
+              </Link>
+            </p>
+          ) : (
+            <p className="mt-5 text-sm text-slate-600">
+              {role === "blogger"
+                ? "Blogger accounts are created by university representatives."
+                : "Admin accounts are created by the system owner."}
+            </p>
+          )}
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-          <h2 className="text-xl text-slate-900">Role-Based Access</h2>
-          <p className="mt-2 text-sm text-slate-600">
-            Each role gets a dedicated dashboard with permissions for admissions workflow.
-          </p>
-
-          <div className="mt-4 space-y-3">
-            {roleOptions.map((item) => (
-              <div
-                key={item}
-                className="rounded-lg border border-slate-200 bg-slate-50 p-3"
-              >
-                <div className="text-sm text-slate-900">{roleLabelMap[item]}</div>
-              </div>
-            ))}
-          </div>
-        </section>
+        
       </div>
     </div>
   );

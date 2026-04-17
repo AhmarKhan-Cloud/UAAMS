@@ -129,7 +129,7 @@ const listMyAnnouncements = asyncHandler(async (req, res) => {
 
 const listMyMeritLists = asyncHandler(async (req, res) => {
   const { page, limit, skip } = getPagination(req.query);
-  const meritStatuses = ["accepted", "assigned", "rejected"];
+  const meritStatuses = ["accepted", "assigned", "finalized", "rejected"];
   const query = { status: { $in: meritStatuses } };
 
   if (req.query.universityId) {
@@ -348,7 +348,7 @@ const getMyDashboard = asyncHandler(async (req, res) => {
     }),
     Application.countDocuments({
       student: req.user._id,
-      status: { $in: ["accepted", "assigned"] },
+      status: { $in: ["accepted", "assigned", "finalized"] },
     }),
     Announcement.countDocuments({ status: "published" }),
     User.countDocuments({

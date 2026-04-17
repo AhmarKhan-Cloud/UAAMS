@@ -35,13 +35,13 @@ export const PublicLayout = () => {
 
           <div className="flex items-center gap-2">
             <Link
-              to="/login"
+              to="/login/student"
               className="rounded-lg px-4 py-2 text-sm text-emerald-700 transition-colors hover:bg-emerald-50"
             >
               Login
             </Link>
             <Link
-              to="/register"
+              to="/register/student"
               className="rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white transition-colors hover:bg-emerald-700"
             >
               Register

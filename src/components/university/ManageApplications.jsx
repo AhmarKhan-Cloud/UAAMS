@@ -26,6 +26,16 @@ const normalizeApplication = (item) => ({
   cnic: item?.cnic || "",
 });
 
+const nextStatusOptionsByCurrent = {
+  "not-submitted": [],
+  pending: ["under-review", "rejected"],
+  "under-review": ["accepted", "rejected"],
+  accepted: ["assigned"],
+  assigned: ["finalized"],
+  finalized: [],
+  rejected: [],
+};
+
 function ManageApplications() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
@@ -159,6 +169,7 @@ function ManageApplications() {
               <option value="accepted">Accepted</option>
               <option value="rejected">Rejected</option>
               <option value="assigned">Assigned</option>
+              <option value="finalized">Finalized</option>
             </select>
           </div>
           <div>
@@ -303,6 +314,7 @@ function StatusBadge({ status }) {
     accepted: "bg-emerald-100 text-emerald-700 border-emerald-200",
     rejected: "bg-red-100 text-red-700 border-red-200",
     assigned: "bg-indigo-100 text-indigo-700 border-indigo-200",
+    finalized: "bg-green-100 text-green-700 border-green-200",
   };
   const icons = {
     "not-submitted": <Clock className="w-4 h-4" />,
@@ -311,6 +323,7 @@ function StatusBadge({ status }) {
     accepted: <CheckCircle className="w-4 h-4" />,
     rejected: <XCircle className="w-4 h-4" />,
     assigned: <CheckCircle className="w-4 h-4" />,
+    finalized: <CheckCircle className="w-4 h-4" />,
   };
   const label = status
     .split("-")
@@ -328,6 +341,8 @@ function ApplicationDetailModal({ application, onClose, onStatusSave }) {
   const [status, setStatus] = useState(application.status);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const availableNextStatuses = nextStatusOptionsByCurrent[application.status] || [];
 
   const handleStatusChange = async () => {
     setError("");
@@ -389,12 +404,20 @@ function ApplicationDetailModal({ application, onClose, onStatusSave }) {
                   onChange={(event) => setStatus(event.target.value)}
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="not-submitted">Not Submitted</option>
-                  <option value="pending">Pending</option>
-                  <option value="under-review">Under Review</option>
-                  <option value="accepted">Accepted</option>
-                  <option value="rejected">Rejected</option>
-                  <option value="assigned">Assigned</option>
+                  <option value={application.status}>
+                    {application.status
+                      .split("-")
+                      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                      .join(" ")} (Current)
+                  </option>
+                  {availableNextStatuses.map((nextStatus) => (
+                    <option key={nextStatus} value={nextStatus}>
+                      {nextStatus
+                        .split("-")
+                        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                        .join(" ")}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -405,7 +428,7 @@ function ApplicationDetailModal({ application, onClose, onStatusSave }) {
               <div className="flex gap-3">
                 <button
                   onClick={handleStatusChange}
-                  disabled={isSaving}
+                  disabled={isSaving || status === application.status}
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-70 disabled:cursor-not-allowed transition-colors"
                 >
                   {isSaving ? "Updating..." : "Update Status"}

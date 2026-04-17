@@ -4,6 +4,8 @@ const {
   getMyApplications,
   getApplicationById,
   payApplicationFee,
+  updateMyDraftApplication,
+  deleteMyDraftApplication,
   getUniversityApplications,
   updateApplicationStatus,
   assignRollNumber,
@@ -18,6 +20,8 @@ router.use(protect);
 
 router.post("/", authorize(ROLES.STUDENT), createApplication);
 router.get("/me", authorize(ROLES.STUDENT), getMyApplications);
+router.patch("/:id", authorize(ROLES.STUDENT), updateMyDraftApplication);
+router.delete("/:id", authorize(ROLES.STUDENT), deleteMyDraftApplication);
 router.patch("/:id/payment", authorize(ROLES.STUDENT), payApplicationFee);
 
 router.get(

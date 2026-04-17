@@ -20,6 +20,7 @@ const statusOptions = [
   { key: "accepted", label: "Accepted" },
   { key: "rejected", label: "Rejected" },
   { key: "assigned", label: "Assigned" },
+  { key: "finalized", label: "Finalized" },
 ];
 
 const formatDate = (value) => {
@@ -104,6 +105,7 @@ export function MyApplications() {
       accepted: 0,
       rejected: 0,
       assigned: 0,
+      finalized: 0,
     };
 
     applications.forEach((application) => {
@@ -161,7 +163,15 @@ export function MyApplications() {
       {!isLoading && !error && filteredApplications.length > 0 ? (
         <div className="space-y-4">
           {filteredApplications.map((application) => (
-            <ApplicationCard key={application.id} application={application} />
+            <ApplicationCard
+              key={application.id}
+              application={application}
+              onDeleteDraft={(applicationId) =>
+                setApplications((previous) =>
+                  previous.filter((item) => item.id !== applicationId),
+                )
+              }
+            />
           ))}
         </div>
       ) : null}
@@ -184,9 +194,11 @@ function FilterButton({ label, count, active, onClick }) {
   );
 }
 
-function ApplicationCard({ application }) {
+function ApplicationCard({ application, onDeleteDraft }) {
   const navigate = useNavigate();
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [draftError, setDraftError] = useState("");
 
   const getStatusIcon = () => {
     switch (application.status) {
@@ -200,6 +212,8 @@ function ApplicationCard({ application }) {
         return <XCircle className="w-5 h-5 text-red-500" />;
       case "assigned":
         return <CheckCircle className="w-5 h-5 text-emerald-500" />;
+      case "finalized":
+        return <CheckCircle className="w-5 h-5 text-green-600" />;
       default:
         return <Clock className="w-5 h-5 text-slate-500" />;
     }
@@ -217,6 +231,8 @@ function ApplicationCard({ application }) {
         return "bg-red-50 text-red-700 border-red-200";
       case "assigned":
         return "bg-emerald-50 text-emerald-700 border-emerald-200";
+      case "finalized":
+        return "bg-green-50 text-green-700 border-green-200";
       default:
         return "bg-slate-100 text-slate-700 border-slate-200";
     }
@@ -237,12 +253,28 @@ function ApplicationCard({ application }) {
       : application.status === "accepted" || application.status === "rejected"
       ? "80%"
       : application.status === "assigned"
+      ? "90%"
+      : application.status === "finalized"
       ? "100%"
       : "0%";
   const isUnpaidDraft =
     application.status === "not-submitted" &&
     application.paymentStatus !== "paid" &&
     Boolean(application.universityId);
+
+  const handleDeleteDraft = async () => {
+    if (!window.confirm("Delete this unpaid draft application?")) return;
+    setDraftError("");
+    setIsDeleting(true);
+    try {
+      await api.del(`/applications/${application.id}`);
+      onDeleteDraft?.(application.id);
+    } catch (error) {
+      setDraftError(error?.message || "Unable to delete draft application.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const downloadApplicationPdf = () => {
     downloadPdfDocument({
@@ -314,13 +346,13 @@ function ApplicationCard({ application }) {
             <TimelineStep label="Submitted" completed={application.status !== "not-submitted"} />
             <TimelineStep
               label="Under Review"
-              completed={["under-review", "accepted", "rejected", "assigned"].includes(application.status)}
+              completed={["under-review", "accepted", "rejected", "assigned", "finalized"].includes(application.status)}
             />
             <TimelineStep
               label="Decision"
-              completed={["accepted", "rejected", "assigned"].includes(application.status)}
+              completed={["accepted", "rejected", "assigned", "finalized"].includes(application.status)}
             />
-            <TimelineStep label="Finalized" completed={application.status === "assigned"} />
+            <TimelineStep label="Finalized" completed={application.status === "finalized"} />
           </div>
           <div className="absolute top-4 left-0 right-0 h-0.5 bg-slate-200 -z-10">
             <div className="h-full bg-emerald-500 transition-all" style={{ width: progressWidth }} />
@@ -330,15 +362,38 @@ function ApplicationCard({ application }) {
 
       <div className="flex gap-3 mt-4 pt-4 border-t border-slate-200">
         {isUnpaidDraft ? (
-          <button
-            type="button"
-            onClick={() =>
-              navigate(`/student/apply/${application.universityId}/payment/${application.id}`)
-            }
-            className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
-          >
-            Resume Unpaid Draft
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() =>
+                navigate(
+                  `/student/apply/${application.universityId}?program=${encodeURIComponent(
+                    application.program,
+                  )}&draft=${application.id}`,
+                )
+              }
+              className="px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition-colors"
+            >
+              View / Edit Draft
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteDraft}
+              disabled={isDeleting}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-70"
+            >
+              {isDeleting ? "Deleting..." : "Delete Draft"}
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                navigate(`/student/apply/${application.universityId}/payment/${application.id}`)
+              }
+              className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
+            >
+              Resume Unpaid Draft
+            </button>
+          </>
         ) : null}
         <button
           type="button"
@@ -348,7 +403,7 @@ function ApplicationCard({ application }) {
           <Download className="w-4 h-4" />
           Download Application
         </button>
-        {["accepted", "assigned"].includes(application.status) && application.rollNumberSlip ? (
+        {["accepted", "assigned", "finalized"].includes(application.status) && application.rollNumberSlip ? (
           <button
             type="button"
             onClick={() =>
@@ -397,6 +452,11 @@ function ApplicationCard({ application }) {
           </button>
         ) : null}
       </div>
+      {draftError ? (
+        <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {draftError}
+        </p>
+      ) : null}
     </div>
   );
 }

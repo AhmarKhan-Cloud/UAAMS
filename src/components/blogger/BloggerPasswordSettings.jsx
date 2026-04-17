@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { KeyRound } from "lucide-react";
+import { PasswordField } from "../shared/PasswordField";
 import { DashboardPageShell } from "../../pages/shared/DashboardPageShell";
 import { api } from "../../lib/apiClient";
 
@@ -47,35 +48,35 @@ function BloggerPasswordSettings() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="mb-2 block text-sm text-slate-700">Current Password</label>
-            <input
-              type="password"
+            <PasswordField
               value={passwordData.currentPassword}
               onChange={(event) => handleChange("currentPassword", event.target.value)}
               placeholder="Enter current password"
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
               required
+              autoComplete="current-password"
             />
           </div>
           <div>
             <label className="mb-2 block text-sm text-slate-700">New Password</label>
-            <input
-              type="password"
+            <PasswordField
               value={passwordData.newPassword}
               onChange={(event) => handleChange("newPassword", event.target.value)}
               placeholder="Enter new password"
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
               required
+              autoComplete="new-password"
             />
           </div>
           <div>
             <label className="mb-2 block text-sm text-slate-700">Confirm New Password</label>
-            <input
-              type="password"
+            <PasswordField
               value={passwordData.confirmPassword}
               onChange={(event) => handleChange("confirmPassword", event.target.value)}
               placeholder="Re-enter new password"
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
               required
+              autoComplete="new-password"
             />
           </div>
 

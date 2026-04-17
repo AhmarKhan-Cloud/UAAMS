@@ -3,18 +3,29 @@ const AUTH_TOKEN_KEY = "uaams_auth_token";
 
 const getStoredToken = () => {
   try {
-    return localStorage.getItem(AUTH_TOKEN_KEY) || "";
+    return (
+      localStorage.getItem(AUTH_TOKEN_KEY) ||
+      sessionStorage.getItem(AUTH_TOKEN_KEY) ||
+      ""
+    );
   } catch {
     return "";
   }
 };
 
-const setStoredToken = (token) => {
+const setStoredToken = (token, { rememberMe = true } = {}) => {
   try {
     if (token) {
-      localStorage.setItem(AUTH_TOKEN_KEY, token);
+      if (rememberMe) {
+        localStorage.setItem(AUTH_TOKEN_KEY, token);
+        sessionStorage.removeItem(AUTH_TOKEN_KEY);
+      } else {
+        sessionStorage.setItem(AUTH_TOKEN_KEY, token);
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+      }
     } else {
       localStorage.removeItem(AUTH_TOKEN_KEY);
+      sessionStorage.removeItem(AUTH_TOKEN_KEY);
     }
   } catch {
     // ignore storage errors

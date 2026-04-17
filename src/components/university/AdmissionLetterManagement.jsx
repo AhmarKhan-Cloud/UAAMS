@@ -20,6 +20,7 @@ const normalizeApplication = (item) => ({
   program: item?.program || "Program",
   aggregate: Number(item?.aggregate || 0),
   status: item?.status || "pending",
+  eligibleForAdmissionLetter: Boolean(item?.eligibleForAdmissionLetter),
   rollNumber: {
     assigned: Boolean(item?.rollNumber?.assigned),
     number: item?.rollNumber?.number || "",
@@ -270,6 +271,19 @@ function AdmissionLetterManagement() {
                   </p>
                   <p className="text-xs text-slate-500 mt-1">
                     Roll Number: {application.rollNumber.number || "Not assigned"}
+                  </p>
+                  <p className="text-xs mt-1">
+                    <span
+                      className={`rounded-full px-2 py-0.5 ${
+                        application.eligibleForAdmissionLetter
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-slate-100 text-slate-700"
+                      }`}
+                    >
+                      {application.eligibleForAdmissionLetter
+                        ? "Eligible for Admission Letter"
+                        : "Not Eligible"}
+                    </span>
                   </p>
                   <p className="text-xs text-slate-500 mt-1">
                     Letter: {application.admissionLetter.letterNumber || "Not issued"}

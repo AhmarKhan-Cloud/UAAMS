@@ -49,7 +49,7 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  const login = async ({ identifier, password, role }) => {
+  const login = async ({ identifier, password, role, rememberMe = true }) => {
     try {
       const response = await api.post(
         "/auth/login",
@@ -66,7 +66,7 @@ export const AuthProvider = ({ children }) => {
         };
       }
 
-      setStoredToken(token);
+      setStoredToken(token, { rememberMe });
       setCurrentUser(user);
       refreshRealtimeSocket();
 
@@ -89,6 +89,7 @@ export const AuthProvider = ({ children }) => {
       return {
         ok: true,
         message: response?.message || "Account created successfully.",
+        data: response?.data || {},
       };
     } catch (error) {
       return {
@@ -98,10 +99,118 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const verifyEmail = async (token) => {
+    try {
+      const response = await api.get(`/auth/verify-email?token=${encodeURIComponent(token)}`, {
+        token: "",
+      });
+      return {
+        ok: true,
+        message: response?.message || "Email verified successfully.",
+        data: response?.data || {},
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        message: error?.message || "Unable to verify email.",
+      };
+    }
+  };
+
+  const resendVerificationEmail = async (email) => {
+    try {
+      const response = await api.post(
+        "/auth/verify-email/resend",
+        { email },
+        { token: "" },
+      );
+      return {
+        ok: true,
+        message: response?.message || "Verification link sent.",
+        data: response?.data || {},
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        message: error?.message || "Unable to resend verification email.",
+      };
+    }
+  };
+
+  const requestPasswordResetOtp = async (email) => {
+    try {
+      const response = await api.post(
+        "/auth/forgot-password/request-otp",
+        { email },
+        { token: "" },
+      );
+      return {
+        ok: true,
+        message: response?.message || "OTP sent to your registered email.",
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        message: error?.message || "Unable to send OTP right now.",
+      };
+    }
+  };
+
+  const verifyPasswordResetOtp = async ({ email, otp }) => {
+    try {
+      const response = await api.post(
+        "/auth/forgot-password/verify-otp",
+        { email, otp },
+        { token: "" },
+      );
+      return {
+        ok: true,
+        message: response?.message || "OTP verified successfully.",
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        message: error?.message || "Invalid OTP.",
+      };
+    }
+  };
+
+  const resetPasswordWithOtp = async ({ email, otp, newPassword, confirmPassword }) => {
+    try {
+      const response = await api.post(
+        "/auth/forgot-password/reset",
+        { email, otp, newPassword, confirmPassword },
+        { token: "" },
+      );
+      return {
+        ok: true,
+        message: response?.message || "Password reset successful.",
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        message: error?.message || "Unable to reset password.",
+      };
+    }
+  };
+
   const logout = () => {
     setStoredToken("");
     setCurrentUser(null);
     disconnectRealtimeSocket();
+    if(window.location.pathname === "/student") {
+      window.location.href = "/login/student";
+    }
+    else if (window.location.pathname === "/university") {
+      window.location.href = "/login/university";
+    }
+    else if (window.location.pathname === "/blogger") {
+      window.location.href = "/login/blogger";
+    }
+    else if (window.location.pathname === "/admin") {
+      window.location.href = "/login/admin";
+    }
+
   };
 
   const refreshUser = async () => {
@@ -131,6 +240,11 @@ export const AuthProvider = ({ children }) => {
       authLoading,
       login,
       register,
+      verifyEmail,
+      resendVerificationEmail,
+      requestPasswordResetOtp,
+      verifyPasswordResetOtp,
+      resetPasswordWithOtp,
       logout,
       refreshUser,
     }),

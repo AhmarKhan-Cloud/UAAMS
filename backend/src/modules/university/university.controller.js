@@ -9,6 +9,10 @@ const asyncHandler = require("../../utils/asyncHandler");
 const getPagination = require("../../utils/pagination");
 const { emitDataUpdate } = require("../../utils/socket");
 const {
+  sendRollNumberAssignedEmail,
+  sendAdmissionLetterIssuedEmail,
+} = require("../../utils/mailer");
+const {
   listUniversities,
   getUniversityById,
   getUniversityFormByUniversityId,
@@ -144,7 +148,7 @@ const getMyDashboard = asyncHandler(async (req, res) => {
     Application.countDocuments({ university: req.user._id, status: "pending" }),
     Application.countDocuments({ university: req.user._id, status: "under-review" }),
     Application.countDocuments({ university: req.user._id, status: "accepted" }),
-    Application.countDocuments({ university: req.user._id, status: "assigned" }),
+    Application.countDocuments({ university: req.user._id, status: { $in: ["assigned", "finalized"] } }),
     Application.countDocuments({
       university: req.user._id,
       "admissionLetter.issued": true,
@@ -266,6 +270,7 @@ const updateMyPrograms = asyncHandler(async (req, res) => {
     feeRange: String(program?.feeRange || "").trim(),
     requiredAggregate: Number(program?.requiredAggregate || 0),
     deadlineDate: normalizeProgramDeadlineDate(program?.deadlineDate),
+    isAdmissionOpen: program?.isAdmissionOpen !== false,
   }));
 
   if (normalizedPrograms.some((program) => !program.name)) {
@@ -294,6 +299,7 @@ const updateMyPrograms = asyncHandler(async (req, res) => {
     payload: {
       universityId: String(req.user._id),
       totalPrograms: normalizedPrograms.length,
+      openPrograms: normalizedPrograms.filter((program) => program.isAdmissionOpen).length,
     },
   });
 
@@ -651,7 +657,8 @@ const listMyRollNumbers = asyncHandler(async (req, res) => {
   const { page, limit, skip } = getPagination(req.query);
   const query = {
     university: req.user._id,
-    status: { $in: ["accepted", "assigned"] },
+    status: { $in: ["accepted", "assigned", "finalized"] },
+    "payment.status": "paid",
   };
 
   if (req.query.program) {
@@ -694,7 +701,7 @@ const listMyRollNumbers = asyncHandler(async (req, res) => {
 const upsertMyRollNumber = asyncHandler(async (req, res) => {
   ensureObjectId(req.params.applicationId, "Invalid application id.");
 
-  const { number, slipFileUrl, slipFileName } = req.body;
+  const { number, slipFileUrl, slipFileName, eligibleForAdmissionLetter } = req.body;
   if (!number) {
     throw new ApiError(400, "Roll number is required.");
   }
@@ -708,6 +715,17 @@ const upsertMyRollNumber = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Application not found.");
   }
 
+  if (!["accepted", "assigned", "finalized"].includes(String(application.status))) {
+    throw new ApiError(
+      400,
+      "Roll number can only be assigned after application is accepted."
+    );
+  }
+
+  if (application.payment?.status !== "paid") {
+    throw new ApiError(400, "Payment is not completed for this application.");
+  }
+
   application.rollNumber = {
     assigned: true,
     number: String(number).trim(),
@@ -716,9 +734,33 @@ const upsertMyRollNumber = asyncHandler(async (req, res) => {
     assignedAt: new Date(),
     assignedBy: req.user._id,
   };
-  application.status = "assigned";
+  if (eligibleForAdmissionLetter !== undefined) {
+    application.eligibleForAdmissionLetter = Boolean(eligibleForAdmissionLetter);
+  }
+  if (application.status !== "finalized") {
+    application.status = "assigned";
+  }
 
   await application.save();
+
+  let rollEmailDelivery = { sent: false, reason: "" };
+  try {
+    rollEmailDelivery = await sendRollNumberAssignedEmail({
+      to: application.email,
+      studentName: application.studentName,
+      universityName: req.user?.name || "University",
+      applicationCode: application.applicationCode,
+      program: application.program,
+      rollNumber: application.rollNumber?.number,
+      slipFileUrl: application.rollNumber?.slipFileUrl,
+      slipFileName: application.rollNumber?.slipFileName,
+    });
+  } catch (emailError) {
+    rollEmailDelivery = {
+      sent: false,
+      reason: emailError?.message || "Failed to send roll number email.",
+    };
+  }
 
   emitDataUpdate({
     resource: "applications",
@@ -728,6 +770,8 @@ const upsertMyRollNumber = asyncHandler(async (req, res) => {
       applicationId: String(application._id),
       universityId: String(application.university),
       status: application.status,
+      rollAssigned: true,
+      eligibleForAdmissionLetter: application.eligibleForAdmissionLetter,
     },
   });
   emitDataUpdate({
@@ -743,7 +787,7 @@ const upsertMyRollNumber = asyncHandler(async (req, res) => {
   return res.status(200).json({
     success: true,
     message: "Roll number saved successfully.",
-    data: { application },
+    data: { application, emailDelivery: rollEmailDelivery },
   });
 });
 
@@ -751,7 +795,10 @@ const listMyAdmissionLetters = asyncHandler(async (req, res) => {
   const { page, limit, skip } = getPagination(req.query);
   const query = {
     university: req.user._id,
-    status: { $in: ["accepted", "assigned"] },
+    status: { $in: ["assigned", "finalized"] },
+    "payment.status": "paid",
+    "rollNumber.assigned": true,
+    eligibleForAdmissionLetter: true,
   };
 
   if (req.query.program) {
@@ -817,6 +864,18 @@ const upsertMyAdmissionLetter = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Application not found.");
   }
 
+  if (!application.rollNumber?.assigned) {
+    throw new ApiError(400, "Admission letter cannot be issued before roll number is assigned.");
+  }
+
+  if (!application.eligibleForAdmissionLetter) {
+    throw new ApiError(400, "This application is not marked eligible for admission letter.");
+  }
+
+  if (application.payment?.status !== "paid") {
+    throw new ApiError(400, "Payment is not completed for this application.");
+  }
+
   application.admissionLetter = {
     issued: true,
     letterNumber: String(letterNumber).trim(),
@@ -828,8 +887,28 @@ const upsertMyAdmissionLetter = asyncHandler(async (req, res) => {
     uploadedBy: req.user._id,
     sentAt: sentToStudent ? new Date() : null,
   };
+  application.status = "finalized";
 
   await application.save();
+
+  let letterEmailDelivery = { sent: false, reason: "" };
+  try {
+    letterEmailDelivery = await sendAdmissionLetterIssuedEmail({
+      to: application.email,
+      studentName: application.studentName,
+      universityName: req.user?.name || "University",
+      applicationCode: application.applicationCode,
+      program: application.program,
+      letterNumber: application.admissionLetter?.letterNumber,
+      fileUrl: application.admissionLetter?.fileUrl,
+      fileName: application.admissionLetter?.fileName,
+    });
+  } catch (emailError) {
+    letterEmailDelivery = {
+      sent: false,
+      reason: emailError?.message || "Failed to send admission letter email.",
+    };
+  }
 
   emitDataUpdate({
     resource: "applications",
@@ -846,7 +925,7 @@ const upsertMyAdmissionLetter = asyncHandler(async (req, res) => {
   return res.status(200).json({
     success: true,
     message: "Admission letter saved successfully.",
-    data: { application },
+    data: { application, emailDelivery: letterEmailDelivery },
   });
 });
 

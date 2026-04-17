@@ -7,6 +7,7 @@ const programSchema = new mongoose.Schema(
     feeRange: { type: String, default: "" },
     requiredAggregate: { type: Number, default: 0, min: 0, max: 100 },
     deadlineDate: { type: Date, default: null },
+    isAdmissionOpen: { type: Boolean, default: true },
   },
   { _id: true }
 );
